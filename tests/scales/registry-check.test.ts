@@ -1,6 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import { adapters } from '../../src/scales/index.js';
-import { checkRegistryIntegrity, assertRegistryIntegrity } from '../../src/scales/registry-check.js';
+import {
+  checkRegistryIntegrity,
+  assertRegistryIntegrity,
+} from '../../src/scales/registry-check.js';
 import { StandardGattScaleAdapter } from '../../src/scales/standard-gatt.js';
 import { QnScaleAdapter } from '../../src/scales/qn-scale.js';
 import type { ScaleAdapter } from '../../src/interfaces/scale-adapter.js';

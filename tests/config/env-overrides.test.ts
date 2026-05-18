@@ -60,13 +60,17 @@ describe('env-overrides (focused unit tests for #184 split)', () => {
 
     it('rejects an out-of-range SCAN_COOLDOWN', () => {
       vi.stubEnv('SCAN_COOLDOWN', '99999');
-      const out = applyEnvOverrides(baseConfig({ runtime: { scan_cooldown: 45 } } as Partial<AppConfig>));
+      const out = applyEnvOverrides(
+        baseConfig({ runtime: { scan_cooldown: 45 } } as Partial<AppConfig>),
+      );
       expect(out.runtime?.scan_cooldown).toBe(45);
     });
 
     it('clears the adapter when BLE_ADAPTER is empty', () => {
       vi.stubEnv('BLE_ADAPTER', '');
-      const out = applyEnvOverrides(baseConfig({ ble: { handler: 'auto', adapter: 'hci0' } } as Partial<AppConfig>));
+      const out = applyEnvOverrides(
+        baseConfig({ ble: { handler: 'auto', adapter: 'hci0' } } as Partial<AppConfig>),
+      );
       expect(out.ble?.adapter).toBeUndefined();
     });
 

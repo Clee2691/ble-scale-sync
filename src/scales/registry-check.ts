@@ -33,9 +33,7 @@ export function checkRegistryIntegrity(adapters: readonly ScaleAdapter[]): Regis
   adapters.forEach((a, i) => {
     const prev = seen.get(a.name);
     if (prev !== undefined) {
-      errors.push(
-        `Duplicate adapter name "${a.name}" at registry indices ${prev} and ${i}.`,
-      );
+      errors.push(`Duplicate adapter name "${a.name}" at registry indices ${prev} and ${i}.`);
     } else {
       seen.set(a.name, i);
     }

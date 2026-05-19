@@ -180,7 +180,7 @@ install_libs() {
   mpremote connect "$port" mip install "github:peterhinch/micropython-mqtt@70b56a7a4aaf"
 
   blue "Installing async primitives (mqtt_as dependency)..."
-  mpremote connect "$port" mip install "github:peterhinch/micropython-async@68b5f01e999b/v3/primitives"
+  mpremote connect "$port" mip install "github:peterhinch/micropython-async/v3/primitives@68b5f01e999b"
 
   green "Libraries installed"
 }

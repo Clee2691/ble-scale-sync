@@ -360,4 +360,60 @@ describe('loadExporterConfig()', () => {
       expect(cfg.ntfy).toBeUndefined();
     });
   });
+
+  describe('Telegram config', () => {
+    it('requires TELEGRAM_BOT_TOKEN when telegram is enabled', () => {
+      vi.stubEnv('EXPORTERS', 'telegram');
+      expect(() => loadExporterConfig()).toThrow(/TELEGRAM_BOT_TOKEN is required/);
+    });
+
+    it('requires TELEGRAM_CHAT_ID when telegram is enabled', () => {
+      vi.stubEnv('EXPORTERS', 'telegram');
+      vi.stubEnv('TELEGRAM_BOT_TOKEN', '123456:ABC');
+      expect(() => loadExporterConfig()).toThrow(/TELEGRAM_CHAT_ID is required/);
+    });
+
+    it('uses defaults for optional telegram vars', () => {
+      vi.stubEnv('EXPORTERS', 'telegram');
+      vi.stubEnv('TELEGRAM_BOT_TOKEN', '123456:ABC');
+      vi.stubEnv('TELEGRAM_CHAT_ID', '987654321');
+      const cfg = loadExporterConfig();
+      expect(cfg.telegram).toEqual({
+        botToken: '123456:ABC',
+        chatId: '987654321',
+        title: 'Scale Measurement',
+        silent: false,
+      });
+    });
+
+    it('parses all telegram env vars', () => {
+      vi.stubEnv('EXPORTERS', 'telegram');
+      vi.stubEnv('TELEGRAM_BOT_TOKEN', '123456:ABC');
+      vi.stubEnv('TELEGRAM_CHAT_ID', '987654321');
+      vi.stubEnv('TELEGRAM_TITLE', 'Weight Update');
+      vi.stubEnv('TELEGRAM_SILENT', 'true');
+      const cfg = loadExporterConfig();
+      expect(cfg.telegram).toEqual({
+        botToken: '123456:ABC',
+        chatId: '987654321',
+        title: 'Weight Update',
+        silent: true,
+      });
+    });
+
+    it('rejects invalid TELEGRAM_SILENT', () => {
+      vi.stubEnv('EXPORTERS', 'telegram');
+      vi.stubEnv('TELEGRAM_BOT_TOKEN', '123456:ABC');
+      vi.stubEnv('TELEGRAM_CHAT_ID', '987654321');
+      vi.stubEnv('TELEGRAM_SILENT', 'maybe');
+      expect(() => loadExporterConfig()).toThrow(/TELEGRAM_SILENT must be true\/false/);
+    });
+
+    it('does not parse telegram config when telegram is not enabled', () => {
+      vi.stubEnv('EXPORTERS', 'garmin');
+      vi.stubEnv('TELEGRAM_BOT_TOKEN', '123456:ABC');
+      const cfg = loadExporterConfig();
+      expect(cfg.telegram).toBeUndefined();
+    });
+  });
 });

@@ -1,15 +1,15 @@
 ---
 title: Exporters
-description: Configure Garmin Connect, Strava, MQTT, Webhook, InfluxDB, Ntfy, and File export targets.
+description: Configure Garmin Connect, Strava, MQTT, Webhook, InfluxDB, Ntfy, Telegram, and File export targets.
 head:
   - - meta
     - name: keywords
-      content: garmin connect scale sync, strava weight sync, mqtt home assistant scale, influxdb body weight, smart scale webhook, ntfy notifications, scale data export csv, garmin body composition upload
+      content: garmin connect scale sync, strava weight sync, mqtt home assistant scale, influxdb body weight, smart scale webhook, ntfy notifications, telegram scale notifications, scale data export csv, garmin body composition upload
 ---
 
 # Exporters
 
-BLE Scale Sync exports body composition data to 7 targets. The [setup wizard](/guide/configuration#setup-wizard-recommended) walks you through exporter selection, configuration, and connectivity testing.
+BLE Scale Sync exports body composition data to 8 targets. The [setup wizard](/guide/configuration#setup-wizard-recommended) walks you through exporter selection, configuration, and connectivity testing.
 
 Exporters are configured in `global_exporters` (shared by all users). For multi-user setups with separate accounts, see [Per-User Exporters](/multi-user#per-user-exporters). All enabled exporters run in parallel; the process reports an error only if **every** exporter fails.
 
@@ -20,6 +20,7 @@ Exporters are configured in `global_exporters` (shared by all users). For multi-
 | [**InfluxDB**](#influxdb)     | Time-series database (v2 write API)                    |
 | [**Webhook**](#webhook)       | Any HTTP endpoint (n8n, Make, Zapier, custom APIs)     |
 | [**Ntfy**](#ntfy)             | Push notifications to phone/desktop                    |
+| [**Telegram**](#telegram)     | Send measurement notifications to a Telegram chat      |
 | [**File (CSV/JSONL)**](#file) | Append readings to a local file                        |
 | [**Strava**](#strava)         | Update weight in your Strava athlete profile           |
 
@@ -180,6 +181,32 @@ global_exporters:
     priority: 4
 ```
 
+## Telegram {#telegram}
+
+Send a measurement notification to a Telegram chat via a bot. Create a bot with [@BotFather](https://t.me/BotFather) to get a bot token, then start a chat with your bot (or add it to a group/channel) so it can message you.
+
+| Field       | Required | Default             | Description                                    |
+| ----------- | -------- | ------------------- | ---------------------------------------------- |
+| `bot_token` | Yes      | (none)              | Bot token from @BotFather                      |
+| `chat_id`   | Yes      | (none)              | Target chat ID (numeric) or `@channelusername` |
+| `title`     | No       | `Scale Measurement` | First line of the message                      |
+| `silent`    | No       | `false`             | Deliver without a notification sound           |
+
+```yaml
+global_exporters:
+  - type: telegram
+    bot_token: '${TELEGRAM_BOT_TOKEN}'
+    chat_id: '987654321'
+    title: Scale Measurement
+    silent: false
+```
+
+The message is sent as plain text. In multi-user setups the user's name is prepended as `[Name]`. Historical readings replayed from a scale's offline cache are skipped (a notification for an old measurement is not meaningful).
+
+::: tip Finding your chat ID
+Message your bot once, then open `https://api.telegram.org/bot<token>/getUpdates` in a browser — the `chat.id` field holds your chat ID. For groups, add the bot to the group first.
+:::
+
 ## File (CSV/JSONL) {#file}
 
 Append each reading to a local CSV or JSONL file. Useful for simple logging without external services.
@@ -287,6 +314,7 @@ At startup, exporters are tested for connectivity. Failures are logged as warnin
 | Webhook  | HEAD request                 |
 | InfluxDB | `/health` endpoint           |
 | Ntfy     | `/v1/health` endpoint        |
+| Telegram | `getChat` endpoint           |
 | Garmin   | None (Python subprocess)     |
 | File     | Directory writable check     |
 | Strava   | None (avoid API rate limits) |

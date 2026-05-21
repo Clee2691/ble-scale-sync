@@ -64,6 +64,15 @@ export function loadEnvConfig(): AppConfig {
         password: n.password,
       });
     }
+    if (name === 'telegram' && exporterConfig.telegram) {
+      const t = exporterConfig.telegram;
+      Object.assign(entry, {
+        bot_token: t.botToken,
+        chat_id: t.chatId,
+        title: t.title,
+        silent: t.silent,
+      });
+    }
 
     return entry as ExporterEntry;
   });

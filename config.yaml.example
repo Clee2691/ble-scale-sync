@@ -130,6 +130,13 @@ global_exporters:
   #   # username: myuser                   # or Basic auth
   #   # password: "${NTFY_PASSWORD}"
 
+  # -- Telegram (bot notifications) --
+  # - type: telegram
+  #   bot_token: "${TELEGRAM_BOT_TOKEN}"   # token from @BotFather
+  #   chat_id: "987654321"                 # numeric ID or @channelusername
+  #   title: Scale Measurement
+  #   silent: false                        # true = no notification sound
+
   # -- File (CSV/JSONL) --
   # - type: file
   #   file_path: "./measurements.csv"      # path to output file

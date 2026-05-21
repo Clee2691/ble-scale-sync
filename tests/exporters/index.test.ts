@@ -5,6 +5,7 @@ import { MqttExporter } from '../../src/exporters/mqtt.js';
 import { WebhookExporter } from '../../src/exporters/webhook.js';
 import { InfluxDbExporter } from '../../src/exporters/influxdb.js';
 import { NtfyExporter } from '../../src/exporters/ntfy.js';
+import { TelegramExporter } from '../../src/exporters/telegram.js';
 import type { ExporterConfig } from '../../src/exporters/config.js';
 
 describe('createExporters()', () => {
@@ -101,6 +102,22 @@ describe('createExporters()', () => {
     expect(exporters).toHaveLength(1);
     expect(exporters[0]).toBeInstanceOf(NtfyExporter);
     expect(exporters[0].name).toBe('ntfy');
+  });
+
+  it('creates TelegramExporter for telegram', () => {
+    const config: ExporterConfig = {
+      exporters: ['telegram'],
+      telegram: {
+        botToken: '123456:ABC',
+        chatId: '987654321',
+        title: 'Scale Measurement',
+        silent: false,
+      },
+    };
+    const exporters = createExporters(config);
+    expect(exporters).toHaveLength(1);
+    expect(exporters[0]).toBeInstanceOf(TelegramExporter);
+    expect(exporters[0].name).toBe('telegram');
   });
 
   it('returns empty array for empty exporters list', () => {

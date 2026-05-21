@@ -128,6 +128,7 @@ ble-scale-sync/
 │   │   ├── webhook.ts               # Generic HTTP webhook
 │   │   ├── influxdb.ts              # InfluxDB v2 (line protocol)
 │   │   ├── ntfy.ts                  # Ntfy push notifications
+│   │   ├── telegram.ts              # Telegram bot notifications
 │   │   └── file.ts                  # Local file exporter (CSV / JSONL)
 │   ├── wizard/
 │   │   ├── index.ts                 # Entry for npm run setup
@@ -195,7 +196,7 @@ ble-scale-sync/
 │   ├── utils/                       # Retry, error
 │   ├── scales/                      # One file per adapter (23 files)
 │   └── exporters/                   # config, garmin, mqtt (+multi-user), webhook, influxdb,
-│                                    # ntfy, strava, file, context, healthcheck, registry, index
+│                                    # ntfy, telegram, strava, file, context, healthcheck, registry, index
 ├── ble-scale-sync-addon/            # Home Assistant Supervisor Add-on
 │   ├── Dockerfile                   # Thin layer on GHCR image + jq/curl/run.sh
 │   ├── build.yaml                   # Multi-arch build config

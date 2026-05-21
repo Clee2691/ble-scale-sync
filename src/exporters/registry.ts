@@ -8,6 +8,7 @@ import type {
   NtfyConfig,
   FileConfig,
   StravaConfig,
+  TelegramConfig,
 } from './config.js';
 import { garminSchema, GarminExporter } from './garmin.js';
 import { mqttSchema, MqttExporter } from './mqtt.js';
@@ -16,6 +17,7 @@ import { influxdbSchema, InfluxDbExporter } from './influxdb.js';
 import { ntfySchema, NtfyExporter } from './ntfy.js';
 import { fileSchema, FileExporter } from './file.js';
 import { stravaSchema, StravaExporter } from './strava.js';
+import { telegramSchema, TelegramExporter } from './telegram.js';
 
 // --- Registry entry type ---
 
@@ -112,6 +114,18 @@ export const EXPORTER_REGISTRY: ExporterRegistryEntry[] = [
         tokenDir: (config.token_dir as string) ?? './strava-tokens',
       };
       return new StravaExporter(stravaConfig);
+    },
+  },
+  {
+    schema: telegramSchema,
+    factory: (config) => {
+      const telegramConfig: TelegramConfig = {
+        botToken: config.bot_token as string,
+        chatId: String(config.chat_id),
+        title: (config.title as string) ?? 'Scale Measurement',
+        silent: (config.silent as boolean) ?? false,
+      };
+      return new TelegramExporter(telegramConfig);
     },
   },
 ];

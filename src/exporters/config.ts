@@ -2,7 +2,15 @@ import { createLogger } from '../logger.js';
 
 const log = createLogger('ExporterConfig');
 
-export type ExporterName = 'garmin' | 'mqtt' | 'webhook' | 'influxdb' | 'ntfy' | 'file' | 'strava';
+export type ExporterName =
+  | 'garmin'
+  | 'mqtt'
+  | 'webhook'
+  | 'influxdb'
+  | 'ntfy'
+  | 'file'
+  | 'strava'
+  | 'telegram';
 
 const KNOWN_EXPORTERS = new Set<ExporterName>([
   'garmin',
@@ -12,6 +20,7 @@ const KNOWN_EXPORTERS = new Set<ExporterName>([
   'ntfy',
   'file',
   'strava',
+  'telegram',
 ]);
 
 export interface MqttConfig {
@@ -62,6 +71,13 @@ export interface StravaConfig {
   tokenDir: string;
 }
 
+export interface TelegramConfig {
+  botToken: string;
+  chatId: string;
+  title: string;
+  silent: boolean;
+}
+
 export interface ExporterConfig {
   exporters: ExporterName[];
   mqtt?: MqttConfig;
@@ -70,6 +86,7 @@ export interface ExporterConfig {
   ntfy?: NtfyConfig;
   file?: FileConfig;
   strava?: StravaConfig;
+  telegram?: TelegramConfig;
 }
 
 function fail(msg: string): never {
@@ -245,5 +262,23 @@ export function loadExporterConfig(): ExporterConfig {
     };
   }
 
-  return { exporters, mqtt, webhook, influxdb, ntfy, file, strava };
+  let telegram: TelegramConfig | undefined;
+  if (exporters.includes('telegram')) {
+    const botToken = process.env.TELEGRAM_BOT_TOKEN?.trim();
+    if (!botToken) {
+      fail('TELEGRAM_BOT_TOKEN is required when telegram exporter is enabled.');
+    }
+    const chatId = process.env.TELEGRAM_CHAT_ID?.trim();
+    if (!chatId) {
+      fail('TELEGRAM_CHAT_ID is required when telegram exporter is enabled.');
+    }
+    telegram = {
+      botToken,
+      chatId,
+      title: process.env.TELEGRAM_TITLE?.trim() || 'Scale Measurement',
+      silent: parseBoolean('TELEGRAM_SILENT', process.env.TELEGRAM_SILENT?.trim(), false),
+    };
+  }
+
+  return { exporters, mqtt, webhook, influxdb, ntfy, file, strava, telegram };
 }

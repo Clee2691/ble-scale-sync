@@ -13,6 +13,7 @@ export {
   publishDisplayReading,
   publishDisplayResult,
 } from './display.js';
+export { createMqttProxyDisplayNotifier } from './display-notifier.js';
 export { ReadingWatcher } from './watcher.js';
 
 // Re-exported for backward compatibility with earlier imports.

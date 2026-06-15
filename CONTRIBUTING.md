@@ -156,7 +156,8 @@ ble-scale-sync/
 │   ├── interfaces/
 │   │   ├── scale-adapter.ts         # ScaleAdapter interface & shared types
 │   │   ├── exporter.ts              # Exporter interface & ExportResult
-│   │   └── exporter-schema.ts       # ExporterSchema for self-describing exporters
+│   │   ├── exporter-schema.ts       # ExporterSchema for self-describing exporters
+│   │   └── display-notifier.ts      # DisplayNotifier capability (transport-agnostic display/beep)
 │   └── scales/
 │       ├── index.ts                 # Adapter registry (order matters: generic last)
 │       ├── body-comp-helpers.ts     # Shared body-comp utilities

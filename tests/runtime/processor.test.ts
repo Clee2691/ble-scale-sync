@@ -14,6 +14,7 @@ import type {
 import type { RawReading } from '../../src/ble/shared.js';
 import type { AppContext } from '../../src/runtime/context.js';
 import type { Exporter } from '../../src/interfaces/exporter.js';
+import type { DisplayNotifier } from '../../src/interfaces/display-notifier.js';
 
 // Capture (and suppress) log output. console.log is the sink for logger.info().
 const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
@@ -24,24 +25,6 @@ vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
 vi.mock(import('../../src/orchestrator.js'), () => ({
   dispatchExports: vi.fn(),
   runHealthchecks: vi.fn(),
-}));
-
-vi.mock(import('../../src/ble/handler-mqtt-proxy/index.js'), async () => ({
-  publishBeep: vi.fn(async () => undefined),
-  publishDisplayReading: vi.fn(async () => undefined),
-  publishDisplayResult: vi.fn(async () => undefined),
-  // Re-exports kept as no-ops since processor only imports the three publish fns.
-  scanAndReadRaw: vi.fn(),
-  scanAndRead: vi.fn(),
-  scanDevices: vi.fn(),
-  publishConfig: vi.fn(),
-  registerScaleMac: vi.fn(),
-  ReadingWatcher: class {},
-  AsyncQueue: class {},
-  setDisplayUsers: vi.fn(),
-  _resetProxyState: vi.fn(),
-  _resetPersistentClient: vi.fn(),
-  _resetDiscoveredMacs: vi.fn(),
 }));
 
 vi.mock(import('../../src/config/write.js'), async (importOriginal) => {
@@ -58,8 +41,6 @@ vi.mock(import('../../src/update-check.js'), () => ({
 
 const { processReading } = await import('../../src/runtime/processor.js');
 const { dispatchExports } = await import('../../src/orchestrator.js');
-const { publishBeep, publishDisplayReading, publishDisplayResult } =
-  await import('../../src/ble/handler-mqtt-proxy/index.js');
 const { updateLastKnownWeight } = await import('../../src/config/write.js');
 const { checkAndLogUpdate } = await import('../../src/update-check.js');
 
@@ -139,6 +120,7 @@ interface CtxOverrides {
   dryRun?: boolean;
   configSource?: AppContext['configSource'];
   configPath?: string;
+  display?: DisplayNotifier;
 }
 
 function makeCtx(users: UserConfig[], overrides: CtxOverrides = {}): AppContext {
@@ -156,21 +138,24 @@ function makeCtx(users: UserConfig[], overrides: CtxOverrides = {}): AppContext 
     signal: new AbortController().signal,
     exporterCache: new Map(),
     embeddedBroker: null,
+    display: overrides.display,
     abortApp: vi.fn(),
     setConfig: vi.fn(),
   } as AppContext;
 }
 
+/** A DisplayNotifier whose three methods are vi mocks, for capability assertions. */
+function fakeDisplay(): DisplayNotifier & {
+  reading: ReturnType<typeof vi.fn>;
+  result: ReturnType<typeof vi.fn>;
+  beep: ReturnType<typeof vi.fn>;
+} {
+  return { reading: vi.fn(), result: vi.fn(), beep: vi.fn() };
+}
+
 function fakeExporter(name = 'webhook'): Exporter {
   return { name, export: vi.fn(async () => ({ success: true })) } as unknown as Exporter;
 }
-
-const MQTT_PROXY: MqttProxyConfig = {
-  device_id: 'esp32-test',
-  topic_prefix: 'ble-proxy',
-  embedded_broker_port: 1883,
-  embedded_broker_bind: '127.0.0.1',
-} as unknown as MqttProxyConfig;
 
 beforeEach(() => {
   vi.mocked(dispatchExports).mockReset();
@@ -178,9 +163,6 @@ beforeEach(() => {
     success: true,
     details: [{ name: 'webhook', ok: true }],
   });
-  vi.mocked(publishBeep).mockClear();
-  vi.mocked(publishDisplayReading).mockClear();
-  vi.mocked(publishDisplayResult).mockClear();
   vi.mocked(updateLastKnownWeight).mockClear();
   vi.mocked(checkAndLogUpdate).mockClear();
   logSpy.mockClear();
@@ -244,25 +226,18 @@ describe('processReading: single-user', () => {
     ]);
   });
 
-  it('publishes display reading with RAW scale weight on mqtt-proxy handler', async () => {
-    const ctx: AppContext = {
-      ...makeCtx([dad]),
-      mqttProxy: MQTT_PROXY,
-    };
-    (ctx as { bleHandler: AppContext['bleHandler'] }).bleHandler = 'mqtt-proxy';
+  it('notifies the display with RAW scale weight, result with computed weight', async () => {
+    const display = fakeDisplay();
+    const ctx = makeCtx([dad], { display });
 
     // raw reading 82 kg + 500 Ohm, payload (FIXED_BODY_COMP) is 80 kg.
-    // Display must show the raw 82, notifyResult uses the computed 80.
+    // The display reading must show the raw 82; result uses the computed 80.
     await processReading(ctx, rawReading({ weight: 82, impedance: 500 }), {
       singleUserExporters: [fakeExporter('webhook')],
     });
 
-    expect(publishDisplayReading).toHaveBeenCalledWith(MQTT_PROXY, 'dad', 'Dad', 82, 500, [
-      'webhook',
-    ]);
-    expect(publishDisplayResult).toHaveBeenCalledWith(MQTT_PROXY, 'dad', 'Dad', 80, [
-      { name: 'webhook', ok: true },
-    ]);
+    expect(display.reading).toHaveBeenCalledWith('dad', 'Dad', 82, 500, ['webhook']);
+    expect(display.result).toHaveBeenCalledWith('dad', 'Dad', 80, [{ name: 'webhook', ok: true }]);
   });
 });
 
@@ -275,17 +250,16 @@ describe('processReading: multi-user', () => {
     const momNoLast: UserConfig = { ...mom, last_known_weight: null };
     const config = makeAppConfig([dadNoLast, momNoLast]);
     config.unknown_user = 'ignore';
+    const display = fakeDisplay();
     const ctx: AppContext = {
-      ...makeCtx([dadNoLast, momNoLast]),
+      ...makeCtx([dadNoLast, momNoLast], { display }),
       config,
-      mqttProxy: MQTT_PROXY,
     };
-    (ctx as { bleHandler: AppContext['bleHandler'] }).bleHandler = 'mqtt-proxy';
 
     const ok = await processReading(ctx, rawReading({ weight: 200, impedance: 0 }));
     expect(ok).toBe(true);
     expect(dispatchExports).not.toHaveBeenCalled();
-    expect(publishBeep).toHaveBeenCalledWith(MQTT_PROXY, 600, 150, 3);
+    expect(display.beep).toHaveBeenCalledWith(600, 150, 3);
   });
 
   it('dispatches per matched user with drift warning in ExportContext when applicable', async () => {
@@ -334,31 +308,29 @@ describe('processReading: multi-user', () => {
     expect(updateLastKnownWeight).not.toHaveBeenCalled();
   });
 
-  it('publishes display reading + result on mqtt-proxy handler', async () => {
-    const ctx = makeCtx([dad, mom], { bleHandler: 'mqtt-proxy', mqttProxy: MQTT_PROXY });
+  it('notifies the display reading + result + beep when a notifier is attached', async () => {
+    const display = fakeDisplay();
+    const ctx = makeCtx([dad, mom], { display });
     await processReading(ctx, rawReading({ weight: 82, impedance: 500 }), {
       getExportersForUser: () => [fakeExporter('webhook')],
     });
-    // notifyReading is called with the raw reading weight (82) before
-    // computeMetrics; notifyResult is called after with the computed payload
-    // weight (FIXED_BODY_COMP.weight = 80).
-    expect(publishDisplayReading).toHaveBeenCalledWith(MQTT_PROXY, 'dad', 'Dad', 82, 500, [
-      'webhook',
-    ]);
-    expect(publishDisplayResult).toHaveBeenCalledWith(MQTT_PROXY, 'dad', 'Dad', 80, [
-      { name: 'webhook', ok: true },
-    ]);
-    expect(publishBeep).toHaveBeenCalledWith(MQTT_PROXY, 1200, 200, 2);
+    // reading is called with the raw weight (82) before computeMetrics; result
+    // is called after with the computed payload weight (FIXED_BODY_COMP = 80).
+    expect(display.reading).toHaveBeenCalledWith('dad', 'Dad', 82, 500, ['webhook']);
+    expect(display.result).toHaveBeenCalledWith('dad', 'Dad', 80, [{ name: 'webhook', ok: true }]);
+    expect(display.beep).toHaveBeenCalledWith(1200, 200, 2);
   });
 
-  it('does not publish on non-mqtt handlers', async () => {
-    const ctx = makeCtx([dad, mom], { bleHandler: 'auto' });
-    await processReading(ctx, rawReading({ weight: 82, impedance: 500 }), {
+  it('is a safe no-op when no display notifier is attached', async () => {
+    // Non-mqtt handlers never attach ctx.display; the transport-agnostic
+    // processor must simply skip the calls without throwing (#183).
+    const ctx = makeCtx([dad, mom]);
+    expect(ctx.display).toBeUndefined();
+    const ok = await processReading(ctx, rawReading({ weight: 82, impedance: 500 }), {
       getExportersForUser: () => [fakeExporter()],
     });
-    expect(publishDisplayReading).not.toHaveBeenCalled();
-    expect(publishDisplayResult).not.toHaveBeenCalled();
-    expect(publishBeep).not.toHaveBeenCalled();
+    expect(ok).toBe(true);
+    expect(dispatchExports).toHaveBeenCalled();
   });
 });
 

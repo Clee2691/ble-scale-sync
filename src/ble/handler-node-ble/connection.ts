@@ -1,6 +1,8 @@
 import NodeBle from 'node-ble';
+import type { MessageBus } from 'dbus-next';
 import { bleLog, errMsg } from '../types.js';
 import type { Adapter } from './dbus.js';
+import { forgetPairingAgent } from './agent.js';
 
 /**
  * Persistent D-Bus connection + adapter, reused across scan cycles in
@@ -20,6 +22,16 @@ export function getConnection(): { bluetooth: NodeBle.Bluetooth; destroy: () => 
   return persistentConn;
 }
 
+/**
+ * Underlying dbus-next bus of the persistent connection. node-ble does not type
+ * the `dbus` field on Bluetooth, so cast the minimal surface we use (same
+ * "declare only what we use" convention as helperOf). Used to register the BlueZ
+ * pairing agent (#168).
+ */
+export function getBus(): MessageBus {
+  return (getConnection().bluetooth as unknown as { dbus: MessageBus }).dbus;
+}
+
 export async function getAdapter(bleAdapter?: string): Promise<Adapter> {
   const conn = getConnection();
   if (!persistentAdapter) {
@@ -36,6 +48,9 @@ export async function getAdapter(bleAdapter?: string): Promise<Adapter> {
 export function resetConnection(): void {
   persistentAdapter = null;
   if (persistentConn) {
+    // Destroying the connection makes BlueZ drop our pairing agent (owner gone),
+    // so just forget the local registration; the next connection re-registers.
+    forgetPairingAgent();
     try {
       persistentConn.destroy();
     } catch {

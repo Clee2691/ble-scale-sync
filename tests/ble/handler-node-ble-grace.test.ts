@@ -21,6 +21,15 @@ vi.mock('dbus-next', () => ({
       public value: unknown,
     ) {}
   },
+  // Minimal surface for the pairing agent module (#168); not exercised here.
+  interface: {
+    Interface: class {
+      constructor(_name?: string) {}
+      static configureMembers(): void {}
+    },
+    ACCESS_READWRITE: 'readwrite',
+  },
+  DBusError: class extends Error {},
 }));
 
 // Mock node-ble (only handler-node-ble's surface is used in this file).

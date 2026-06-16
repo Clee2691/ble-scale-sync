@@ -9,6 +9,8 @@ import { FileExporter } from './file.js';
 import { StravaExporter } from './strava.js';
 import { TelegramExporter } from './telegram.js';
 import { IntervalsExporter } from './intervals.js';
+import { RunalyzeExporter } from './runalyze.js';
+import { WgerExporter } from './wger.js';
 
 export { loadExporterConfig } from './config.js';
 export { createExporterFromEntry, EXPORTER_SCHEMAS, KNOWN_EXPORTER_NAMES } from './registry.js';
@@ -44,6 +46,12 @@ export function createExporters(config: ExporterConfig): Exporter[] {
         break;
       case 'intervals':
         exporters.push(new IntervalsExporter(config.intervals!));
+        break;
+      case 'runalyze':
+        exporters.push(new RunalyzeExporter(config.runalyze!));
+        break;
+      case 'wger':
+        exporters.push(new WgerExporter(config.wger!));
         break;
       default: {
         const _exhaustive: never = name;

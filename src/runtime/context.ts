@@ -9,6 +9,7 @@ import type { ConfigSource } from '../config/load.js';
 import type { ResolvedRuntimeConfig } from '../config/resolve.js';
 import type { EmbeddedBrokerHandle } from '../ble/embedded-broker.js';
 import type { Exporter } from '../interfaces/exporter.js';
+import type { DisplayNotifier } from '../interfaces/display-notifier.js';
 
 export interface AppContext {
   // Hot-swappable on reload
@@ -29,6 +30,9 @@ export interface AppContext {
 
   // Lifecycle handle (mqtt-proxy only; set after bootstrapMqttProxy)
   embeddedBroker: EmbeddedBrokerHandle | null;
+
+  /** Display/beep capability (mqtt-proxy only; set after bootstrapMqttProxy). */
+  display?: DisplayNotifier;
 
   /** Replace hot-swap fields after reloading config.yaml. */
   setConfig(next: AppConfig, resolved: ResolvedRuntimeConfig): void;

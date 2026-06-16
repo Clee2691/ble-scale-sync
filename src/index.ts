@@ -2,7 +2,7 @@
 
 import { parseArgs } from 'node:util';
 import { writeFileSync } from 'node:fs';
-import { setDisplayUsers } from './ble/handler-mqtt-proxy/index.js';
+import { setDisplayUsers, createMqttProxyDisplayNotifier } from './ble/handler-mqtt-proxy/index.js';
 import { bootstrapMqttProxy } from './ble/mqtt-proxy-bootstrap.js';
 import { notifyReady, startHeartbeat, stopHeartbeat } from './runtime/systemd-watchdog.js';
 import { armHardExit } from './runtime/hard-exit.js';
@@ -170,6 +170,9 @@ async function main(): Promise<void> {
     const bootstrapped = await bootstrapMqttProxy(ctx.mqttProxy);
     ctx.mqttProxy = bootstrapped.mqttProxy;
     ctx.embeddedBroker = bootstrapped.embeddedBroker;
+    // Attach the display capability; the getter reads the hot-swappable
+    // ctx.mqttProxy live so config reloads take effect (#183).
+    ctx.display = createMqttProxyDisplayNotifier(() => ctx.mqttProxy);
   }
   if (ctx.scaleMac) {
     log.info(`Scanning for scale ${ctx.scaleMac}...`);

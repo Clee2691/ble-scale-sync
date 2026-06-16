@@ -3,11 +3,6 @@ import type { Exporter, ExportContext } from '../interfaces/exporter.js';
 import type { BodyComposition, ScaleReading } from '../interfaces/scale-adapter.js';
 import type { WeightUnit } from '../config/schema.js';
 import type { AppContext } from './context.js';
-import {
-  publishBeep,
-  publishDisplayReading,
-  publishDisplayResult,
-} from '../ble/handler-mqtt-proxy/index.js';
 import { resolveUserProfile } from '../config/resolve.js';
 import { matchUserByWeight, detectWeightDrift } from '../config/user-matching.js';
 import { updateLastKnownWeight } from '../config/write.js';
@@ -44,36 +39,6 @@ function expandReadings(raw: RawReading): ScaleReading[] {
 /** Returns `[historic <ISO>]` when the reading is from a cache replay, else ''. */
 function historicTag(timestamp: Date | undefined): string {
   return timestamp ? `[historic ${timestamp.toISOString()}]` : '';
-}
-
-function notifyReading(
-  ctx: AppContext,
-  slug: string,
-  name: string,
-  weight: number,
-  impedance: number | undefined,
-  exporterNames: string[],
-): void {
-  if (ctx.bleHandler !== 'mqtt-proxy' || !ctx.mqttProxy) return;
-  publishDisplayReading(ctx.mqttProxy, slug, name, weight, impedance, exporterNames).catch(
-    () => {},
-  );
-}
-
-function notifyResult(
-  ctx: AppContext,
-  slug: string,
-  name: string,
-  weight: number,
-  details: Array<{ name: string; ok: boolean }>,
-): void {
-  if (ctx.bleHandler !== 'mqtt-proxy' || !ctx.mqttProxy) return;
-  publishDisplayResult(ctx.mqttProxy, slug, name, weight, details).catch(() => {});
-}
-
-function notifyBeep(ctx: AppContext, freq: number, duration: number, repeat: number): void {
-  if (ctx.bleHandler !== 'mqtt-proxy' || !ctx.mqttProxy) return;
-  publishBeep(ctx.mqttProxy, freq, duration, repeat).catch(() => {});
 }
 
 function logBodyComp(payload: BodyComposition, weightUnit: WeightUnit, prefix = ''): void {
@@ -151,8 +116,7 @@ async function processSingleUser(
       // notifyReading uses raw scale values (pre-computeMetrics); the
       // display should mirror what the scale measured, not the computed
       // body composition. notifyResult below uses the computed payload.
-      notifyReading(
-        ctx,
+      ctx.display?.reading(
         user.slug,
         user.name,
         reading.weight,
@@ -171,7 +135,7 @@ async function processSingleUser(
     const { success, details } = await dispatchExports(exporters, payload, context);
 
     if (isLast) {
-      notifyResult(ctx, user.slug, user.name, payload.weight, details);
+      ctx.display?.result(user.slug, user.name, payload.weight, details);
       lastSuccess = success;
     }
   }
@@ -199,7 +163,7 @@ async function processMultiUser(
 
   if (!match.user) {
     if (match.warning) log.warn(match.warning);
-    notifyBeep(ctx, 600, 150, 3);
+    ctx.display?.beep(600, 150, 3);
     return true;
   }
 
@@ -212,7 +176,7 @@ async function processMultiUser(
   // newest reading happens to be deduped.
   checkAndLogUpdate(ctx.config.update_check);
 
-  notifyBeep(ctx, 1200, 200, 2);
+  ctx.display?.beep(1200, 200, 2);
 
   const exporters = getExportersForUser ? getExportersForUser(user.slug) : [];
   const drift = detectWeightDrift(user, matchWeight);
@@ -261,8 +225,7 @@ async function processMultiUser(
     if (isLast) {
       // notifyReading uses raw values (pre-computeMetrics) so the display
       // shows what the scale measured; notifyResult uses computed payload.
-      notifyReading(
-        ctx,
+      ctx.display?.reading(
         user.slug,
         user.name,
         reading.weight,
@@ -282,7 +245,7 @@ async function processMultiUser(
     const { success, details } = await dispatchExports(exporters, payload, context);
 
     if (isLast) {
-      notifyResult(ctx, user.slug, user.name, payload.weight, details);
+      ctx.display?.result(user.slug, user.name, payload.weight, details);
       lastSuccess = success;
     }
   }

@@ -7,7 +7,7 @@
 ![Node.js](https://img.shields.io/badge/node-%3E%3D22-brightgreen?logo=node.js&logoColor=white)
 ![Docker](https://img.shields.io/badge/docker-ghcr.io-blue?logo=docker&logoColor=white)
 
-A cross-platform CLI tool that reads body composition data from **25+ BLE smart scales** and exports to **Garmin Connect**, **Strava**, **Intervals.icu**, **MQTT** (Home Assistant), **InfluxDB**, **Webhooks**, **Ntfy**, **Telegram**, and **local files** (CSV/JSONL). No phone app needed. Your data stays on your device.
+A cross-platform CLI tool that reads body composition data from **25+ BLE smart scales** and exports to **Garmin Connect**, **Strava**, **Intervals.icu**, **Runalyze**, **Wger**, **MQTT** (Home Assistant), **InfluxDB**, **Webhooks**, **Ntfy**, **Telegram**, and **local files** (CSV/JSONL). No phone app needed. Your data stays on your device.
 
 **[Documentation](https://blescalesync.dev)** · **[Getting Started](https://blescalesync.dev/guide/getting-started)** · **[Supported Scales](https://blescalesync.dev/guide/supported-scales)** · **[Exporters](https://blescalesync.dev/exporters)** · **[FAQ](https://blescalesync.dev/faq)**
 
@@ -80,14 +80,14 @@ Requires Node.js v22+ and a BLE adapter. See the **[full install guide](https://
 ## Features
 
 - **[25+ scale brands](https://blescalesync.dev/guide/supported-scales).** Xiaomi (Mi Scale 2 passive broadcast), Renpho (Elis 1, ES-CS20M, FITINDEX, Sencor, QN-Scale), GE (CS 10 G / Fit Plus), Robi (S9), Eufy, Yunmai, Beurer (incl. BF720 / BF105), Sanitas (incl. SBF70 body composition), Medisana, and more.
-- **[9 export targets](https://blescalesync.dev/exporters).** Garmin Connect, Strava, Intervals.icu, MQTT (Home Assistant), InfluxDB, Webhook, Ntfy, Telegram, File (CSV/JSONL).
+- **[11 export targets](https://blescalesync.dev/exporters).** Garmin Connect, Strava, Intervals.icu, Runalyze, Wger, MQTT (Home Assistant), InfluxDB, Webhook, Ntfy, Telegram, File (CSV/JSONL).
 - **[10 body metrics](https://blescalesync.dev/body-composition).** BIA-based body composition from weight + impedance.
 - **[Multi-user](https://blescalesync.dev/multi-user).** Automatic weight-based identification with per-user exporters.
 - **Historical sync.** Replays a scale's onboard cache of offline measurements with their original timestamps to exporters that support back-dating (Garmin Connect, InfluxDB, File).
 - **[Interactive setup wizard](https://blescalesync.dev/guide/configuration).** Scale discovery (MAC or macOS CoreBluetooth UUID), exporter config, connectivity tests.
 - **[BLE diagnostic tool](https://blescalesync.dev/troubleshooting).** `npm run diagnose` for detailed BLE troubleshooting.
 - **[Home Assistant Add-on](https://blescalesync.dev/guide/home-assistant-addon).** One-click install via My Home Assistant badge, MQTT auto-discovery, UI-driven config, Garmin token bootstrap, and MFA workaround.
-- **[ESP32 BLE proxy](https://blescalesync.dev/guide/esp32-proxy).** Use a remote ESP32 as a BLE radio over MQTT, with a built-in embedded broker for zero-config setup, simplified Docker deployment, and optional display.
+- **[ESP32 BLE proxy](https://blescalesync.dev/guide/esp32-proxy).** Use a remote ESP32 as a BLE radio over MQTT, with a built-in embedded broker for zero-config setup, simplified Docker deployment, and optional display. Set `ble.scale_mac` for GATT-only scales (for example QN-Scale) so the ESP32 can connect autonomously the instant it sees the scale. It connects to both public-address and random-address GATT scales even when the controller misreports the address type, and connects with minimal delay so a briefly-connectable scale is reached before it sleeps.
 - **[ESPHome Bluetooth proxy](https://blescalesync.dev/guide/esphome-proxy).** Reuse an existing ESPHome BT proxy mesh (Home Assistant) as a BLE radio via Native API: broadcast and GATT scales (public and random BLE addresses), multi-proxy with RSSI auto-pick.
 - **BLE adapter selection.** `ble.adapter: hci1` for multi-adapter setups (Linux).
 - **Broadcast mode.** Supports non-connectable scales that only advertise weight via BLE advertisements.

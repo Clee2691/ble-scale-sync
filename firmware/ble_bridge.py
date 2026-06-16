@@ -165,6 +165,52 @@ def _raw_has_mac(raw_results, macs):
     return False
 
 
+def _unpack_scan_result(data):
+    """Unpack a MicroPython _IRQ_SCAN_RESULT event tuple.
+
+    Event data order is (addr_type, addr, adv_type, rssi, adv_data). adv_type
+    (the connectable/scannable advertising kind) is intentionally dropped;
+    addr_type (0 = public, 1 = random) MUST be preserved because aioble
+    gap_connect matches on it. Reading addr_type as adv_type made every device
+    look public, so random-address scales (MAC top bits 0b11, e.g. FF:..) timed
+    out on connect (#231).
+    """
+    addr_type, addr, _adv_type, rssi, adv_data = data
+    return addr_type, addr, rssi, adv_data
+
+
+def _addr_is_random_static(address):
+    """True if a colon-MAC string is a BLE static random address.
+
+    A static random address is defined by the top two bits of its most
+    significant byte being 0b11 (addr[0] & 0xC0 == 0xC0). That pattern is
+    reserved exclusively for random static addresses, so it identifies the
+    type even when the controller misreports it in the scan result (some
+    NimBLE / ESP-IDF builds report such a scale as public). Public,
+    resolvable-private (0b01) and non-resolvable-private (0b00) addresses are
+    NOT distinguishable from each other by bits alone, so only this one
+    pattern is treated as authoritative (#231).
+    """
+    return (int(address.split(":")[0], 16) & 0xC0) == 0xC0
+
+
+def _addr_type_probe_order(addr_type, address=None):
+    """Connect address types to attempt: best-guess type first, then the
+    opposite as a #231 timeout fallback. Returns ints (0 = public, 1 = random).
+
+    aioble gap_connect matches on addr_type, so a misreported type only shows
+    up as a connect timeout; probing both rules it out before giving up. When
+    the MAC is an unambiguous static random address (addr[0] & 0xC0 == 0xC0),
+    its real type is known from the bits, so probe random first regardless of a
+    misreported scan type; otherwise trust the scan-reported type (#231).
+    """
+    if address is not None and _addr_is_random_static(address):
+        primary = 1
+    else:
+        primary = addr_type & 1
+    return (primary, primary ^ 1)
+
+
 class BleBridge:
     def __init__(self):
         self._conn = None
@@ -205,7 +251,7 @@ class BleBridge:
             nonlocal _cap_logged, _oom_logged
             if event == 5:  # _IRQ_SCAN_RESULT
                 if len(raw_results) < board.MAX_SCAN_ENTRIES:
-                    _, addr, addr_type, rssi, adv_data = data
+                    addr_type, addr, rssi, adv_data = _unpack_scan_result(data)
                     try:
                         raw_results.append((bytes(addr), addr_type, rssi, bytes(adv_data)))
                     except MemoryError:
@@ -270,7 +316,7 @@ class BleBridge:
         def _irq(event, data):
             if event == 5:  # _IRQ_SCAN_RESULT
                 if len(self._raw_results) < board.MAX_SCAN_ENTRIES:
-                    _, addr, addr_type, rssi, adv_data = data
+                    addr_type, addr, rssi, adv_data = _unpack_scan_result(data)
                     try:
                         self._raw_results.append((bytes(addr), addr_type, rssi, bytes(adv_data)))
                     except MemoryError:
@@ -351,10 +397,20 @@ class BleBridge:
         addr_type: 0 = public, 1 = random (from scan results).
         """
         _ble.active(True)
-        addr_bytes = bytes(int(b, 16) for b in address.split(":"))
-        aioble_addr_type = aioble.ADDR_RANDOM if (addr_type & 1) else aioble.ADDR_PUBLIC
-        device = aioble.Device(aioble_addr_type, addr_bytes)
+        # The streaming scan installs the firmware's own _ble.irq() handler on
+        # the shared BLE singleton, which replaces aioble's central dispatcher.
+        # aioble registers its dispatcher only once at import and never restores
+        # it, so after a scan the _IRQ_PERIPHERAL_CONNECT event is delivered to
+        # the scan handler and dropped, making every connect time out (#231).
+        # Hand the IRQ back to aioble before any aioble call; start_streaming()
+        # re-installs the scan handler after the session.
+        try:
+            import aioble.core as _aioble_core
 
+            _ble.irq(_aioble_core.ble_irq)
+        except Exception as e:  # noqa: BLE001
+            print("Warning: could not restore aioble IRQ before connect: %s" % e)
+        addr_bytes = bytes(int(b, 16) for b in address.split(":"))
         # Reclaim heap before connecting. NimBLE allocates its connection from
         # the ESP-IDF heap, and an empty MicroPython split is returned to that
         # heap during a GC pass (MICROPY_GC_SPLIT_HEAP_AUTO), so collecting after
@@ -364,7 +420,12 @@ class BleBridge:
         import gc
 
         gc.collect()
-        gc.collect()
+        # The second pass can release a split the first only emptied, which
+        # matters on a tight no-PSRAM board (#139). On PSRAM boards it only adds
+        # latency before connect, and a stepped-on scale stays connectable
+        # briefly (#231), so gate it on the aggressive-GC board flag.
+        if getattr(board, "AGGRESSIVE_GC", True):
+            gc.collect()
         _log_idf_heap("before connect")
 
         # aioble forwards scan_duration_ms to gap_connect (default 2 s). Scales
@@ -375,22 +436,41 @@ class BleBridge:
         timeout_ms = getattr(board, "CONNECT_TIMEOUT_MS", 15000)
         scan_ms = getattr(board, "CONNECT_SCAN_MS", 15000)
         retries = getattr(board, "CONNECT_RETRIES", 1)
+
+        # Try the advertised address type first, then the opposite once if it
+        # times out. A wrong addr_type is indistinguishable from an absent peer
+        # to aioble gap_connect (it matches on addr AND addr_type), so a scale
+        # whose type was misreported looks like a pure TimeoutError (#231).
+        self._conn = None
         last_exc = None
-        for attempt in range(1, retries + 1):
-            try:
-                self._conn = await device.connect(timeout_ms=timeout_ms, scan_duration_ms=scan_ms)
-                last_exc = None
+        for probe, use_type in enumerate(_addr_type_probe_order(addr_type, address)):
+            aioble_type = aioble.ADDR_RANDOM if use_type else aioble.ADDR_PUBLIC
+            device = aioble.Device(aioble_type, addr_bytes)
+            type_retries = retries if probe == 0 else 1
+            for attempt in range(1, type_retries + 1):
+                try:
+                    self._conn = await device.connect(
+                        timeout_ms=timeout_ms, scan_duration_ms=scan_ms
+                    )
+                    last_exc = None
+                    break
+                except Exception as e:
+                    last_exc = e
+                    print(
+                        "GATT connect attempt %d/%d (addr_type=%d) failed for %s: %s: %s"
+                        % (attempt, type_retries, use_type, address, type(e).__name__, e)
+                    )
+                    if attempt < type_retries:
+                        gc.collect()
+                        await asyncio.sleep_ms(500)
+            if self._conn is not None:
                 break
-            except Exception as e:
-                last_exc = e
-                print(
-                    "GATT connect attempt %d/%d failed for %s: %s: %s"
-                    % (attempt, retries, address, type(e).__name__, e)
-                )
-                if attempt < retries:
-                    gc.collect()
-                    await asyncio.sleep_ms(500)
-        if last_exc is not None:
+            # Only the opposite address type can cure a timeout; bail on any
+            # other error so a real failure does not double the wait.
+            if not isinstance(last_exc, asyncio.TimeoutError):
+                break
+            gc.collect()
+        if self._conn is None and last_exc is not None:
             raise last_exc
         self._chars = {}
         chars_info = []

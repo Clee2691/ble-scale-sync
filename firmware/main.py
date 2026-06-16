@@ -143,6 +143,18 @@ def describe_exc(e):
     print(f"Error: {message}")
 
 
+async def _wait_not_busy(max_iters=60, sleep_ms=500):
+    """Wait up to max_iters*sleep_ms for an in-flight BLE op to clear (#231).
+
+    Returns True if _busy is clear (free to proceed), False if it stayed set.
+    """
+    for _ in range(max_iters):
+        if not _busy:
+            return True
+        await asyncio.sleep_ms(sleep_ms)
+    return not _busy
+
+
 # ─── Autonomous scan loop ────────────────────────────────────────────────────
 
 def _check_scale_beep(results):
@@ -165,10 +177,18 @@ def _find_scale_in_raw(raw_results):
 
     Returns (mac, addr_bytes, addr_type) or None. Non-destructive peek used by the
     autonomous connect logic to skip the MQTT round-trip (#201).
+
+    Some NimBLE / ESP-IDF builds misreport a static random scale as public in the
+    scan IRQ. A static random address is unambiguous from its top two bits
+    (addr[0] & 0xC0 == 0xC0), so trust the bits over the reported type: connecting
+    with the wrong addr_type only ever surfaces as a connect TimeoutError because
+    aioble gap_connect matches on addr AND addr_type (#231).
     """
     for addr_bytes, addr_type, _rssi, _raw in raw_results:
         mac = ":".join("%02X" % b for b in addr_bytes)
         if mac in _scale_macs:
+            if (addr_bytes[0] & 0xC0) == 0xC0:
+                addr_type = 1
             print(f"Auto-connect: found known scale {mac} in raw buffer (addr_type={addr_type})")
             return mac, addr_bytes, addr_type
     return None
@@ -267,17 +287,22 @@ async def _streaming_scan_loop():
                     if found:
                         mac, _addr_bytes, addr_type = found
                         print(f"Auto-connect: scale {mac} detected after {waited}ms, connecting immediately")
-                        # Drain and publish scan results first so the host
-                        # sees what triggered the connect.
+                        # A stepped-on GATT-only scale stays connectable only
+                        # briefly, so reach gap_connect with minimal delay (#231).
+                        # Snapshot scan results synchronously before stop_streaming
+                        # clears the raw buffer, but defer the awaited MQTT publish
+                        # (a WiFi round-trip) until AFTER the connect attempt.
                         try:
                             results = bridge.drain_results()
-                            gc.collect()
                             _check_scale_beep(results)
                             board.on_scan_complete(results, bool(_scale_macs))
+                        except Exception:
+                            results = []
+                        await _auto_gatt_connect(mac, addr_type)
+                        try:
                             await client.publish(topic("scan/results"), json.dumps(results), qos=0)
                         except Exception:
                             pass
-                        await _auto_gatt_connect(mac, addr_type)
                         break
                 # If auto-connect is disabled, just break to flush results
                 # as before (host-initiated connect path).
@@ -389,18 +414,17 @@ async def handle_connect(payload):
     global _char_subscribed, _busy, _scan_paused
     _scan_paused = True  # Pause autonomous scanning
 
+    # Serialize against an in-flight BLE op. On continuous boards the autonomous
+    # connect path (#201) holds _busy while it runs; without this wait a
+    # host-initiated fallback connect (#231) re-enters aioble on the same bridge
+    # concurrently, which can abort the connect mid-flight.
+    if not await _wait_not_busy():
+        _scan_paused = False
+        await publish_error("Busy: another BLE operation is in progress")
+        return
+
     if board.CONTINUOUS_SCAN:
         bridge.stop_streaming()
-    else:
-        # Wait for any in-progress batch scan to finish (max 30s)
-        for _ in range(60):
-            if not _busy:
-                break
-            await asyncio.sleep_ms(500)
-        if _busy:
-            _scan_paused = False
-            await publish_error("Busy — another BLE operation is in progress")
-            return
 
     _busy = True
     try:
@@ -582,6 +606,9 @@ async def main():
                     if "/response" not in suffix:
                         await handle_read(suffix)
             except Exception as e:
+                import sys
+
+                sys.print_exception(e)
                 await publish_error(describe_exc(e))
 
         await asyncio.sleep_ms(50)

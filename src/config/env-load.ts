@@ -80,6 +80,19 @@ export function loadEnvConfig(): AppConfig {
         api_key: i.apiKey,
       });
     }
+    if (name === 'runalyze' && exporterConfig.runalyze) {
+      Object.assign(entry, {
+        token: exporterConfig.runalyze.token,
+      });
+    }
+    if (name === 'wger' && exporterConfig.wger) {
+      const w = exporterConfig.wger;
+      Object.assign(entry, {
+        base_url: w.baseUrl,
+        token: w.token,
+        sync_measurements: w.syncMeasurements,
+      });
+    }
 
     return entry as ExporterEntry;
   });

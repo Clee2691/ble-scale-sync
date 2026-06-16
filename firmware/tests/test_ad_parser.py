@@ -315,5 +315,103 @@ class TestRawHasMac(unittest.TestCase):
         self.assertFalse(ble_bridge._raw_has_mac([self._raw(_MAC)], {_MAC_STR.lower()}))
 
 
+class TestUnpackScanResult(unittest.TestCase):
+    """_unpack_scan_result: keep real addr_type, drop adv_type (#231)."""
+
+    def test_preserves_random_addr_type(self):
+        # IRQ event data order: (addr_type, addr, adv_type, rssi, adv_data).
+        data = (1, _MAC, 0, -55, b"\x02\x01\x06")
+        addr_type, addr, rssi, adv_data = ble_bridge._unpack_scan_result(data)
+        self.assertEqual(addr_type, 1)
+        self.assertEqual(bytes(addr), _MAC)
+        self.assertEqual(rssi, -55)
+        self.assertEqual(bytes(adv_data), b"\x02\x01\x06")
+
+    def test_preserves_public_addr_type(self):
+        data = (0, _MAC, 0, -40, b"")
+        addr_type, _addr, _rssi, _adv = ble_bridge._unpack_scan_result(data)
+        self.assertEqual(addr_type, 0)
+
+    def test_addr_type_not_taken_from_adv_type(self):
+        # Regression: random address (addr_type=1) advertising ADV_IND
+        # (adv_type=0). The old unpack stored adv_type as addr_type, yielding 0
+        # (public) and a connect timeout for random-address scales (#231).
+        data = (1, _MAC, 0, -50, b"")
+        addr_type, _addr, _rssi, _adv = ble_bridge._unpack_scan_result(data)
+        self.assertEqual(addr_type, 1)
+
+
+class TestAddrTypeProbeOrder(unittest.TestCase):
+    """_addr_type_probe_order: advertised type first, opposite as fallback (#231)."""
+
+    def test_public_then_random(self):
+        self.assertEqual(ble_bridge._addr_type_probe_order(0), (0, 1))
+
+    def test_random_then_public(self):
+        self.assertEqual(ble_bridge._addr_type_probe_order(1), (1, 0))
+
+    def test_masks_to_low_bit(self):
+        # addr_type may carry higher bits; only bit 0 selects public/random.
+        self.assertEqual(ble_bridge._addr_type_probe_order(2), (0, 1))
+        self.assertEqual(ble_bridge._addr_type_probe_order(3), (1, 0))
+
+
+class TestAddrIsRandomStatic(unittest.TestCase):
+    """_addr_is_random_static: MSByte top two bits 0b11 => static random (#231)."""
+
+    def test_ff_prefix_is_random_static(self):
+        # 0xFF & 0xC0 == 0xC0. The reporter's QN-Scale MAC.
+        self.assertTrue(ble_bridge._addr_is_random_static("FF:03:00:53:D6:4D"))
+
+    def test_c0_prefix_is_random_static(self):
+        # 0xC0 is the lowest MSByte with both top bits set.
+        self.assertTrue(ble_bridge._addr_is_random_static("C0:11:22:33:44:55"))
+
+    def test_lowercase_prefix_is_random_static(self):
+        self.assertTrue(ble_bridge._addr_is_random_static("ff:03:00:53:d6:4d"))
+
+    def test_public_oui_prefix_is_not_random_static(self):
+        # 0x84 & 0xC0 == 0x80, not 0xC0 — a normal public OUI address.
+        self.assertFalse(ble_bridge._addr_is_random_static("84:FC:E6:53:06:1C"))
+
+    def test_resolvable_private_prefix_is_not_static(self):
+        # 0x40 & 0xC0 == 0x40 (resolvable private) — not the static pattern.
+        self.assertFalse(ble_bridge._addr_is_random_static("40:11:22:33:44:55"))
+
+    def test_non_resolvable_private_prefix_is_not_static(self):
+        # 0x00 & 0xC0 == 0x00 (non-resolvable private) — not the static pattern.
+        self.assertFalse(ble_bridge._addr_is_random_static("00:11:22:33:44:55"))
+
+
+class TestAddrTypeProbeOrderFromMac(unittest.TestCase):
+    """_addr_type_probe_order with an address overrides a misreported type (#231)."""
+
+    def test_random_static_mac_overrides_public_scan_type(self):
+        # Scan misreported addr_type=0, but FF:.. is unambiguously random:
+        # random (1) must be probed first, public (0) as the fallback.
+        self.assertEqual(
+            ble_bridge._addr_type_probe_order(0, "FF:03:00:53:D6:4D"), (1, 0)
+        )
+
+    def test_random_static_mac_keeps_random_first(self):
+        self.assertEqual(
+            ble_bridge._addr_type_probe_order(1, "FF:03:00:53:D6:4D"), (1, 0)
+        )
+
+    def test_public_mac_trusts_scan_type(self):
+        # Not the static pattern: keep the scan-reported order (no override).
+        self.assertEqual(
+            ble_bridge._addr_type_probe_order(0, "84:FC:E6:53:06:1C"), (0, 1)
+        )
+        self.assertEqual(
+            ble_bridge._addr_type_probe_order(1, "84:FC:E6:53:06:1C"), (1, 0)
+        )
+
+    def test_no_address_falls_back_to_scan_type(self):
+        # Backward compatible with the no-address call form.
+        self.assertEqual(ble_bridge._addr_type_probe_order(0), (0, 1))
+        self.assertEqual(ble_bridge._addr_type_probe_order(1), (1, 0))
+
+
 if __name__ == "__main__":
     unittest.main()

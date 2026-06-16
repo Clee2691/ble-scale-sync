@@ -24,15 +24,17 @@ import {
   CHAR_DISCOVERY_MAX_RETRIES,
   CHAR_DISCOVERY_RETRY_DELAY_MS,
 } from '../types.js';
-import { helperOf, type Adapter, type Device } from './dbus.js';
+import { helperOf, getDbusNext, type Adapter, type Device } from './dbus.js';
 import {
   getAdapter,
+  getBus,
   resetConnection,
   isStaleConnectionError,
   isDbusConnectionError,
   dbusError,
   parseHciIndex,
 } from './connection.js';
+import { registerPairingAgent } from './agent.js';
 import {
   startDiscoverySafe,
   removeDevice,
@@ -58,16 +60,33 @@ const BONDING_TIMEOUT_MS = 15_000;
  * read continues unbonded so adapters that do not strictly need it are not
  * blocked; pairing may need a registered BlueZ agent on some setups.
  */
-async function ensureBonded(device: Device): Promise<void> {
+async function ensureBonded(device: Device, pin: number | undefined): Promise<void> {
   try {
     const paired = (await device.isPaired()) as unknown as boolean;
     if (paired) {
       bleLog.debug('Device already bonded');
       return;
     }
+    // Register our own BlueZ pairing agent first so pairing can actually complete:
+    // it supplies the configured PIN as the passkey for Passkey Entry, or auto-accepts
+    // Just Works / numeric comparison. Without an agent BlueZ returns "Authentication
+    // Failed" (#168). Best-effort; a failure here falls back to any system agent.
+    try {
+      await registerPairingAgent(getBus(), () => pin);
+    } catch (err) {
+      bleLog.debug(`Pairing agent registration skipped: ${errMsg(err)}`);
+    }
     bleLog.info('Adapter requires bonding; attempting BLE pairing...');
     await withTimeout(device.pair(), BONDING_TIMEOUT_MS, 'BLE pairing timed out');
     bleLog.info('BLE pairing succeeded');
+    // Mark the device trusted so subsequent reconnects re-use the bond without
+    // re-invoking the agent. Best-effort: a failure does not affect this session.
+    try {
+      const { Variant } = await getDbusNext();
+      await helperOf(device).set('Trusted', new Variant('b', true));
+    } catch (err) {
+      bleLog.debug(`Could not set Trusted on device: ${errMsg(err)}`);
+    }
   } catch (err) {
     bleLog.warn(
       `BLE pairing failed (continuing unbonded): ${errMsg(err)}. ` +
@@ -335,7 +354,7 @@ export async function scanAndReadRaw(opts: ScanOptions): Promise<RawReading> {
     // Establish an encrypted link before enabling notifications for adapters
     // whose SIG services protect their CCCDs (#168). Best-effort: see ensureBonded.
     if (matchedAdapter.requiresBonding) {
-      await ensureBonded(device);
+      await ensureBonded(device, scaleAuth?.pin);
     }
 
     const raw = await withTimeout(

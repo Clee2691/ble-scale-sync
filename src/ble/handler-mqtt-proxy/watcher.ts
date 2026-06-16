@@ -1,7 +1,8 @@
-import type { ScaleAdapter, ScaleReading, UserProfile } from '../../interfaces/scale-adapter.js';
+import type { ScaleAdapter, UserProfile } from '../../interfaces/scale-adapter.js';
 import type { MqttProxyConfig } from '../../config/schema.js';
 import type { RawReading } from '../shared.js';
-import { waitForRawReading, hasParseableBroadcastSource } from '../shared.js';
+import { waitForRawReading } from '../shared.js';
+import { evaluateAdvertisement, GraceTimers, DedupWindow } from '../advertisement.js';
 import { bleLog, withTimeout, errMsg, IMPEDANCE_GRACE_MS } from '../types.js';
 import { AsyncQueue } from '../async-queue.js';
 import { topics } from './topics.js';
@@ -66,11 +67,18 @@ export class ReadingWatcher {
   private targetMac?: string;
   private config: MqttProxyConfig;
   private profile?: UserProfile;
-  private dedup = new Map<string, number>();
   private gattInProgress = false;
   private gattStartedAt = 0;
-  private graceTimers = new Map<string, ReturnType<typeof setTimeout>>();
-  private graceReadings = new Map<string, RawReading>();
+  private readonly dedup = new DedupWindow(DEDUP_WINDOW_MS);
+  /** Weight-only fallback timer per address; on elapse the held reading is queued. */
+  private readonly grace = new GraceTimers(IMPEDANCE_GRACE_MS, (address, gr) => {
+    bleLog.info(
+      `Matched: ${gr.adapter.name} (${address}), weight only, no impedance within ${IMPEDANCE_GRACE_MS / 1000}s`,
+    );
+    bleLog.info(`Broadcast reading: ${gr.reading.weight} kg`);
+    registerScaleMac(this.config, address).catch(() => {});
+    this.queue.push(gr);
+  });
   private _client: MqttClient | null = null;
   private _lifecycleHandlers: LifecycleHandler[] = [];
   private _messageHandler: ((topic: string, payload: Buffer) => void) | null = null;
@@ -191,78 +199,38 @@ export class ReadingWatcher {
           const adapter = this.adapters.find((a) => a.matches(info));
           if (!adapter) continue;
 
-          {
-            let reading: ScaleReading | null = null;
-            if (adapter.parseBroadcast && entry.manufacturer_data) {
-              reading = adapter.parseBroadcast(Buffer.from(entry.manufacturer_data, 'hex'));
-            }
-            if (!reading && adapter.parseServiceData) {
-              for (const sd of info.serviceData ?? []) {
-                reading = adapter.parseServiceData(sd.uuid, sd.data);
-                if (reading) break;
-              }
-            }
-            const requiresStable = adapter.preferPassive === true;
-            if (reading && (!requiresStable || adapter.isComplete(reading))) {
-              // Cancel any pending grace timer. We got the full reading.
-              const gt = this.graceTimers.get(entry.address);
-              if (gt) {
-                clearTimeout(gt);
-                this.graceTimers.delete(entry.address);
-                this.graceReadings.delete(entry.address);
-              }
+          const decision = evaluateAdvertisement(adapter, info);
 
-              // Dedup check
-              const key = `${entry.address}:${reading.weight.toFixed(1)}`;
-              const now = Date.now();
-              this.pruneDedup(now);
-              const lastSeen = this.dedup.get(key);
-              if (lastSeen && now - lastSeen < DEDUP_WINDOW_MS) {
-                bleLog.debug(`Dedup skip: ${key} (${((now - lastSeen) / 1000).toFixed(1)}s ago)`);
-                continue; // Don't block other candidates in this scan batch
-              }
-              this.dedup.set(key, now);
+          if (decision.kind === 'complete') {
+            // Got the full reading; cancel any pending grace timer for this addr.
+            this.grace.cancel(entry.address);
 
-              bleLog.info(`Matched: ${adapter.name} (${entry.address})`);
-              bleLog.info(`Broadcast reading: ${reading.weight} kg`);
-              registerScaleMac(this.config, entry.address).catch(() => {});
-              this.queue.push({ reading, adapter });
-              continue;
+            if (!this.dedup.shouldEmit(entry.address, decision.reading.weight)) {
+              bleLog.debug(`Dedup skip: ${entry.address}:${decision.reading.weight.toFixed(1)}`);
+              continue; // Don't block other candidates in this scan batch
             }
 
-            // Partial frame for a passive adapter: start grace timer for impedance.
-            if (reading && requiresStable) {
-              this.graceReadings.set(entry.address, { reading, adapter });
-              if (!this.graceTimers.has(entry.address)) {
-                const addr = entry.address;
-                this.graceTimers.set(
-                  addr,
-                  setTimeout(() => {
-                    this.graceTimers.delete(addr);
-                    const gr = this.graceReadings.get(addr);
-                    this.graceReadings.delete(addr);
-                    if (!gr) return;
-                    bleLog.info(
-                      `Matched: ${gr.adapter.name} (${addr}), weight only, no impedance within ${IMPEDANCE_GRACE_MS / 1000}s`,
-                    );
-                    bleLog.info(`Broadcast reading: ${gr.reading.weight} kg`);
-                    registerScaleMac(this.config, addr).catch(() => {});
-                    this.queue.push(gr);
-                  }, IMPEDANCE_GRACE_MS),
-                );
-              }
-              continue;
-            }
+            bleLog.info(`Matched: ${adapter.name} (${entry.address})`);
+            bleLog.info(`Broadcast reading: ${decision.reading.weight} kg`);
+            registerScaleMac(this.config, entry.address).catch(() => {});
+            this.queue.push({ reading: decision.reading, adapter });
+            continue;
+          }
+
+          // Partial frame for a passive adapter: hold for an impedance frame.
+          if (decision.kind === 'partial') {
+            this.grace.hold(entry.address, { reading: decision.reading, adapter });
+            continue;
           }
 
           // Device still carries broadcast data this adapter parses — a usable
           // reading just hasn't arrived yet. Keep waiting for a stable frame.
-          if (hasParseableBroadcastSource(adapter, info)) continue;
+          if (decision.kind === 'wait') continue;
 
           // No broadcast source for this device. GATT-connect if the adapter
           // has a GATT path (#201: dual-mode adapters like QN Scale must reach
           // this even though they declare parseBroadcast).
-          if (!adapter.charNotifyUuid) continue;
+          if (decision.kind === 'none') continue; // no charNotifyUuid
 
           // When auto_connect is enabled (default), the ESP32 connects
           // autonomously and publishes a `connected` payload handled by
@@ -308,9 +276,7 @@ export class ReadingWatcher {
   async stop(): Promise<void> {
     if (!this.started || !this._client) return;
 
-    for (const t of this.graceTimers.values()) clearTimeout(t);
-    this.graceTimers.clear();
-    this.graceReadings.clear();
+    this.grace.clear();
 
     // Remove message handler
     if (this._messageHandler) {
@@ -524,12 +490,6 @@ export class ReadingWatcher {
       this.gattInProgress = false;
       device?.cleanup();
       if (client) await mqttGattDisconnect(client, t).catch(() => {});
-    }
-  }
-
-  private pruneDedup(now: number): void {
-    for (const [key, ts] of this.dedup) {
-      if (now - ts >= DEDUP_WINDOW_MS) this.dedup.delete(key);
     }
   }
 }

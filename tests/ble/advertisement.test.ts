@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { evaluateAdvertisement, GraceTimers } from '../../src/ble/advertisement.js';
+import { evaluateAdvertisement, GraceTimers, DedupWindow } from '../../src/ble/advertisement.js';
 import type { RawReading } from '../../src/ble/shared.js';
 import type {
   ScaleAdapter,
@@ -211,5 +211,55 @@ describe('GraceTimers', () => {
     g.hold('AA', raw(70));
     vi.advanceTimersByTime(1000);
     expect(onElapsed).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('DedupWindow', () => {
+  it('emits a new (address, weight) and suppresses a repeat within the window', () => {
+    let t = 1000;
+    const d = new DedupWindow(30_000, () => t);
+    expect(d.shouldEmit('AA', 70.0)).toBe(true);
+    t = 5000;
+    expect(d.shouldEmit('AA', 70.0)).toBe(false);
+  });
+
+  it('re-emits after the window elapses', () => {
+    let t = 1000;
+    const d = new DedupWindow(30_000, () => t);
+    expect(d.shouldEmit('AA', 70.0)).toBe(true);
+    t = 1000 + 30_000;
+    expect(d.shouldEmit('AA', 70.0)).toBe(true);
+  });
+
+  it('keys on weight rounded to one decimal', () => {
+    let t = 1000;
+    const d = new DedupWindow(30_000, () => t);
+    expect(d.shouldEmit('AA', 70.04)).toBe(true);
+    t = 2000;
+    expect(d.shouldEmit('AA', 70.0)).toBe(false); // 70.04 -> "70.0"
+    expect(d.shouldEmit('AA', 70.1)).toBe(true); // different rounded key
+  });
+
+  it('treats different addresses independently', () => {
+    const t = 1000;
+    const d = new DedupWindow(30_000, () => t);
+    expect(d.shouldEmit('AA', 70.0)).toBe(true);
+    expect(d.shouldEmit('BB', 70.0)).toBe(true);
+  });
+
+  it('prunes expired entries so the map does not grow unbounded', () => {
+    let t = 1000;
+    const d = new DedupWindow(30_000, () => t);
+    d.shouldEmit('AA', 70.0);
+    t = 1000 + 30_000;
+    d.shouldEmit('BB', 80.0); // triggers prune of AA
+    // AA is gone, so it re-emits as new rather than being suppressed
+    expect(d.shouldEmit('AA', 70.0)).toBe(true);
+  });
+
+  it('defaults now to Date.now when not injected', () => {
+    const d = new DedupWindow(30_000);
+    expect(d.shouldEmit('AA', 70.0)).toBe(true);
+    expect(d.shouldEmit('AA', 70.0)).toBe(false);
   });
 });

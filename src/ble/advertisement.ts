@@ -146,3 +146,45 @@ export class GraceTimers {
     this.readings.clear();
   }
 }
+
+// ─── Dedup window (per address+weight) ─────────────────────────────────────────
+
+/**
+ * Owns the `dedup` Map + prune logic duplicated in the mqtt-proxy and
+ * esphome-proxy watchers (#242). Suppresses a repeated reading of the same
+ * weight from the same address within `windowMs`, so a scale that keeps
+ * broadcasting the same frame after a weigh-in is not queued repeatedly.
+ *
+ * `shouldEmit` is a boolean check the caller wraps in its own control flow (the
+ * mqtt watcher must `continue` its batch loop, the esphome watcher returns), and
+ * each caller keeps its own log line.
+ */
+export class DedupWindow {
+  private readonly seen = new Map<string, number>();
+
+  constructor(
+    private readonly windowMs: number,
+    private readonly now: () => number = Date.now,
+  ) {}
+
+  /**
+   * Return true if this (address, weight) has not been emitted within the
+   * window, recording it as emitted. Return false (suppress) otherwise. Old
+   * entries are pruned on every call so the map cannot grow without bound.
+   */
+  shouldEmit(address: string, weight: number): boolean {
+    const key = `${address}:${weight.toFixed(1)}`;
+    const now = this.now();
+    this.prune(now);
+    const lastSeen = this.seen.get(key);
+    if (lastSeen && now - lastSeen < this.windowMs) return false;
+    this.seen.set(key, now);
+    return true;
+  }
+
+  private prune(now: number): void {
+    for (const [key, ts] of this.seen) {
+      if (now - ts >= this.windowMs) this.seen.delete(key);
+    }
+  }
+}

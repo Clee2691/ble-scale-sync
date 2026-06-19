@@ -475,7 +475,16 @@ class BleBridge:
         # what actually bounds a stalled peer.
         async def _discover_chars():
             chars_info = []
+            # aioble allows only one discovery in flight per connection (a single
+            # connection._discover slot), so the services() iterator must be
+            # fully drained before any characteristics() discovery starts.
+            # Nesting characteristics() inside the services() loop raised
+            # "ValueError: Discovery in progress" (#231). Collect services first,
+            # then discover characteristics per service (aioble's own pattern).
+            services = []
             async for service in self._conn.services():
+                services.append(service)
+            for service in services:
                 async for char in service.characteristics():
                     uuid_str = _norm_uuid(char.uuid)
                     self._chars[uuid_str] = char

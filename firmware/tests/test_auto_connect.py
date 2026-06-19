@@ -227,8 +227,15 @@ class TestLazyNotifyConfig(unittest.TestCase):
     The host advertises lazy_notify so the firmware enables BLE notify only on a
     per-char subscribe command (host-ordered). Absent flag = eager (old host)."""
 
+    def setUp(self):
+        self._orig_lazy = main._lazy_notify
+        self._orig_scale_macs = set(main._scale_macs)
+        self._orig_auto_connect = main._auto_connect
+
     def tearDown(self):
-        main._lazy_notify = False
+        main._lazy_notify = self._orig_lazy
+        main._scale_macs = self._orig_scale_macs
+        main._auto_connect = self._orig_auto_connect
 
     def test_default_is_false(self):
         main._lazy_notify = False
@@ -253,6 +260,29 @@ class TestLazyNotifyConfig(unittest.TestCase):
         # The module must define _lazy_notify at import time so on_message can
         # assign it and the connect handlers can read it.
         self.assertTrue(hasattr(main, "_lazy_notify"))
+
+    def test_on_message_parses_lazy_notify_true(self):
+        # Drive the REAL production parse path: on_message must read lazy_notify
+        # off the config topic and set the global. This pins the actual wire to
+        # global assignment so a regression that deletes the parse line in
+        # on_message is caught here, not only by the behavioral enable tests.
+        main._lazy_notify = False
+        payload = json.dumps({"scales": [], "lazy_notify": True})
+        main.on_message(main.topic("config"), payload, False)
+        self.assertTrue(main._lazy_notify)
+
+    def test_on_message_defaults_lazy_notify_false_when_absent(self):
+        # Old host sends no flag; on_message must default the global to False.
+        main._lazy_notify = True
+        payload = json.dumps({"scales": ["AA:BB:CC:DD:EE:FF"]})
+        main.on_message(main.topic("config"), payload, False)
+        self.assertFalse(main._lazy_notify)
+
+    def test_on_message_parses_lazy_notify_false_explicit(self):
+        main._lazy_notify = True
+        payload = json.dumps({"scales": [], "lazy_notify": False})
+        main.on_message(main.topic("config"), payload, False)
+        self.assertFalse(main._lazy_notify)
 
 
 class _RecordingBridge:

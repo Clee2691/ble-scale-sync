@@ -241,6 +241,9 @@ async def _auto_gatt_connect(mac, addr_type):
         await client.publish(topic("connected"), json.dumps(result), qos=0)
         print(f"Auto-connect to {mac} succeeded, {len(result['chars'])} chars published to host")
     except Exception as e:
+        import sys
+
+        sys.print_exception(e)
         print(f"Auto-connect failed for {mac}: {describe_exc(e)}")
         _scan_paused = False
         if board.CONTINUOUS_SCAN:

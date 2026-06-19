@@ -133,5 +133,37 @@ class TestConnectRestoresAiobleIrq(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(_captured["addr_type"], 0)
 
 
+class TestConnectFallbackTriesOppositeType(unittest.IsolatedAsyncioTestCase):
+    """connect() falls back to the opposite address type on any connect failure,
+    not only a TimeoutError. A re-entry after a wrong-type timeout surfaced a
+    TypeError, which previously stranded the connect on one type (#231)."""
+
+    async def test_opposite_type_tried_after_non_timeout_error(self):
+        attempts = []
+
+        class _FailFirstDevice:
+            def __init__(self, addr_type, addr_bytes):
+                self._addr_type = addr_type
+
+            async def connect(self, timeout_ms=None, scan_duration_ms=None):
+                attempts.append(self._addr_type)
+                if len(attempts) == 1:
+                    raise TypeError("coroutine expected")
+                return _FakeConn()
+
+        orig_device = _aioble.Device
+        _aioble.Device = _FailFirstDevice
+        try:
+            bridge = ble_bridge.BleBridge()
+            result = await bridge.connect("84:FC:E6:53:06:1C", 0)
+        finally:
+            _aioble.Device = orig_device
+
+        # Public reported -> probe order (0, 1). The first attempt (0) raises a
+        # non-timeout TypeError; the fallback (1) must still run and succeed.
+        self.assertEqual(attempts, [0, 1])
+        self.assertEqual(result, {"chars": []})
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -423,10 +423,12 @@ class BleBridge:
         scan_ms = getattr(board, "CONNECT_SCAN_MS", 15000)
         retries = getattr(board, "CONNECT_RETRIES", 1)
 
-        # Try the advertised address type first, then the opposite once if it
-        # times out. A wrong addr_type is indistinguishable from an absent peer
-        # to aioble gap_connect (it matches on addr AND addr_type), so a scale
-        # whose type was misreported looks like a pure TimeoutError (#231).
+        # Probe the controller-reported address type first, then the opposite as
+        # a fallback on any failure. A wrong addr_type is indistinguishable from
+        # an absent peer to aioble gap_connect (it matches on addr AND addr_type),
+        # so a scale connected with the wrong type looks like a TimeoutError, and
+        # an aioble re-entry can also surface a TypeError; either way the fallback
+        # must run (#231).
         self._conn = None
         last_exc = None
         for probe, use_type in enumerate(_addr_type_probe_order(addr_type)):
@@ -451,10 +453,12 @@ class BleBridge:
                         await asyncio.sleep_ms(500)
             if self._conn is not None:
                 break
-            # Only the opposite address type can cure a timeout; bail on any
-            # other error so a real failure does not double the wait.
-            if not isinstance(last_exc, asyncio.TimeoutError):
-                break
+            # Try the opposite address type on any connect failure, not only a
+            # TimeoutError. A misreported type is the usual reason a known-awake
+            # scale fails to connect, and discriminating on the exception class
+            # proved fragile: a re-entry into aioble after a wrong-type timeout
+            # surfaced a TypeError ("coroutine expected"), not a TimeoutError, so
+            # the fallback was skipped and the connect stranded on one type (#231).
             gc.collect()
         if self._conn is None and last_exc is not None:
             raise last_exc

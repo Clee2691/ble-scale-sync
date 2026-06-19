@@ -7,10 +7,9 @@ import type {
   BodyComposition,
 } from '../interfaces/scale-adapter.js';
 import { uuid16, buildPayload, xorChecksum, type ScaleBodyComp } from './body-comp-helpers.js';
+import { matchesDescriptor, type MatchDescriptor } from './match-descriptor.js';
 
 // ─── OneByoneAdapter (Eufy C1/P1, Health Scale) ─────────────────────────────
-
-const ONEBYONE_NAMES = ['t9146', 't9147', 't9120', 'health scale'];
 
 /**
  * Adapter for Eufy C1/P1/A1 and "Health Scale" branded 1byone devices.
@@ -23,6 +22,11 @@ const ONEBYONE_NAMES = ['t9146', 't9147', 't9120', 'health scale'];
  */
 export class OneByoneAdapter implements ScaleAdapter {
   readonly name = '1byone (Eufy)';
+  readonly match: MatchDescriptor = {
+    priority: 70,
+    names: { includes: ['t9146', 't9147', 't9120', 'health scale'] },
+    charUuids: ['fff4'],
+  };
   readonly charNotifyUuid = uuid16(0xfff4);
   readonly charWriteUuid = uuid16(0xfff1);
   readonly normalizesWeight = true;
@@ -30,13 +34,7 @@ export class OneByoneAdapter implements ScaleAdapter {
   readonly unlockIntervalMs = 0;
 
   matches(device: BleDeviceInfo): boolean {
-    const name = (device.localName || '').toLowerCase();
-    if (ONEBYONE_NAMES.some((n) => name.includes(n))) return true;
-    // Post-discovery disambiguation of the shared 0xFFF0 vendor service: the
-    // 1byone/Eufy notify characteristic 0xFFF4 is unique to this family (Inlife
-    // never exposes it), so it identifies the device when the broadcast name is
-    // absent at connect time (e.g. BlueZ by-MAC). #177
-    return (device.characteristicUuids ?? []).includes(uuid16(0xfff4));
+    return matchesDescriptor(device, this.match);
   }
 
   /**
@@ -106,6 +104,10 @@ export class OneByoneAdapter implements ScaleAdapter {
  */
 export class OneByoneNewAdapter implements ScaleAdapter {
   readonly name = '1byone Scale (new)';
+  readonly match: MatchDescriptor = {
+    priority: 60,
+    names: { exact: ['1byone scale'] },
+  };
   readonly charNotifyUuid = uuid16(0xffb2);
   readonly charWriteUuid = uuid16(0xffb1);
   readonly normalizesWeight = true;
@@ -119,8 +121,7 @@ export class OneByoneNewAdapter implements ScaleAdapter {
   private cachedImpedance = 0;
 
   matches(device: BleDeviceInfo): boolean {
-    const name = (device.localName || '').toLowerCase();
-    return name === '1byone scale';
+    return matchesDescriptor(device, this.match);
   }
 
   parseNotification(data: Buffer): ScaleReading | null {

@@ -6,13 +6,12 @@ import type {
   BodyComposition,
 } from '../interfaces/scale-adapter.js';
 import { buildPayload } from './body-comp-helpers.js';
+import { matchesDescriptor, type MatchDescriptor } from './match-descriptor.js';
 
 // Sanitas SBF72/73 / Beurer BF915 custom service + characteristic UUIDs (full 128-bit)
 // Standard BCS characteristic for body composition measurement (inherited from StandardWeightProfileHandler)
 const CHR_BODY_COMP_MEAS = '00002a9c00001000800000805f9b34fb';
 const CHR_USER_CONTROL_POINT = '00002a9f00001000800000805f9b34fb';
-
-const KNOWN_NAMES = ['sbf72', 'sbf73', 'bf915'];
 
 interface CachedGattData {
   bodyFatPercent: number;
@@ -36,6 +35,10 @@ interface CachedGattData {
  */
 export class SanitasSbf72Adapter implements ScaleAdapter {
   readonly name = 'Sanitas SBF72/73';
+  readonly match: MatchDescriptor = {
+    priority: 170,
+    names: { includes: ['sbf72', 'sbf73', 'bf915'] },
+  };
   readonly charNotifyUuid = CHR_BODY_COMP_MEAS;
   readonly charWriteUuid = CHR_USER_CONTROL_POINT;
   readonly normalizesWeight = true;
@@ -46,8 +49,7 @@ export class SanitasSbf72Adapter implements ScaleAdapter {
   private cachedGatt: CachedGattData | null = null;
 
   matches(device: BleDeviceInfo): boolean {
-    const name = (device.localName || '').toLowerCase();
-    return KNOWN_NAMES.some((n) => name.includes(n));
+    return matchesDescriptor(device, this.match);
   }
 
   /**

@@ -7,6 +7,7 @@ import type {
   BodyComposition,
 } from '../interfaces/scale-adapter.js';
 import { uuid16, buildPayload, xorChecksum, type ScaleBodyComp } from './body-comp-helpers.js';
+import { matchesDescriptor, type MatchDescriptor } from './match-descriptor.js';
 
 const CHR_NOTIFY = uuid16(0xfff4);
 const CHR_WRITE = uuid16(0xfff1);
@@ -24,6 +25,7 @@ const CHR_WRITE = uuid16(0xfff1);
  */
 export class ExcelvanCF369Adapter implements ScaleAdapter {
   readonly name = 'Excelvan CF369';
+  readonly match: MatchDescriptor = { priority: 110, names: { exact: ['electronic scale'] } };
   readonly charNotifyUuid = CHR_NOTIFY;
   readonly charWriteUuid = CHR_WRITE;
 
@@ -56,8 +58,7 @@ export class ExcelvanCF369Adapter implements ScaleAdapter {
   }
 
   matches(device: BleDeviceInfo): boolean {
-    const name = (device.localName || '').toLowerCase();
-    return name === 'electronic scale';
+    return matchesDescriptor(device, this.match);
   }
 
   /**

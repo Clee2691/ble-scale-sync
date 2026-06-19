@@ -7,9 +7,9 @@ import type {
   BodyComposition,
 } from '../interfaces/scale-adapter.js';
 import { buildPayload, type ScaleBodyComp } from './body-comp-helpers.js';
+import { matchesDescriptor, type MatchDescriptor } from './match-descriptor.js';
 
 // Custom 128-bit UUIDs (remove dashes, lowercase)
-const SVC_UUID = 'f433bd8075b811e297d90002a5d5c51b';
 const CHR_NOTIFY = '1a2ea40075b911e2be050002a5d5c51b';
 const CHR_WRITE = '29f1108075b911e28bf60002a5d5c51b';
 
@@ -25,6 +25,11 @@ const CHR_WRITE = '29f1108075b911e28bf60002a5d5c51b';
  */
 export class ExingtechY1Adapter implements ScaleAdapter {
   readonly name = 'Exingtech Y1';
+  readonly match: MatchDescriptor = {
+    priority: 120,
+    names: { exact: ['vscale'] },
+    serviceUuids: ['f433bd8075b811e297d90002a5d5c51b'],
+  };
   readonly charNotifyUuid = CHR_NOTIFY;
   readonly charWriteUuid = CHR_WRITE;
 
@@ -36,11 +41,7 @@ export class ExingtechY1Adapter implements ScaleAdapter {
   private cachedComp: ScaleBodyComp = {};
 
   matches(device: BleDeviceInfo): boolean {
-    const name = (device.localName || '').toLowerCase();
-    if (name === 'vscale') return true;
-
-    const uuids = (device.serviceUuids || []).map((u) => u.toLowerCase().replace(/-/g, ''));
-    return uuids.includes(SVC_UUID);
+    return matchesDescriptor(device, this.match);
   }
 
   /**

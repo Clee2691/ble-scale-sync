@@ -9,6 +9,7 @@ import type {
 } from '../interfaces/scale-adapter.js';
 import { uuid16, buildPayload, type ScaleBodyComp } from './body-comp-helpers.js';
 import { bleLog } from '../ble/types.js';
+import type { MatchDescriptor } from './match-descriptor.js';
 
 // ─── Beurer SIG-standard adapter (BF720, BF105) ─────────────────────────────
 
@@ -68,6 +69,13 @@ interface CachedComp {
  */
 export class BeurerBf720Adapter implements ScaleAdapter {
   readonly name = 'Beurer BF720/BF105';
+  readonly match: MatchDescriptor = {
+    priority: 220,
+    custom: true,
+    names: { includes: ['bf720', 'bf105'] },
+    serviceUuids: ['181d', '181b'],
+    manufacturerId: 0x0611,
+  };
   // Legacy single-char fallback (unused in multi-char mode).
   readonly charNotifyUuid = CHR_WEIGHT_MEASUREMENT;
   readonly charWriteUuid = CHR_CURRENT_TIME;

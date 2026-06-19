@@ -7,6 +7,7 @@ import type {
   BodyComposition,
 } from '../interfaces/scale-adapter.js';
 import { uuid16, buildPayload } from './body-comp-helpers.js';
+import { matchesDescriptor, type MatchDescriptor } from './match-descriptor.js';
 import { bleLog } from '../ble/types.js';
 
 // Renpho ES-26BB custom service / characteristic UUIDs
@@ -45,6 +46,7 @@ function isChecksumValid(data: Buffer): boolean {
  */
 export class RenphoEs26bbAdapter implements ScaleAdapter {
   readonly name = 'Renpho ES-26BB';
+  readonly match: MatchDescriptor = { priority: 230, names: { exact: ['es-26bb-b'] } };
   readonly charNotifyUuid = CHR_RESULTS;
   readonly charWriteUuid = CHR_CONTROL;
   readonly normalizesWeight = true;
@@ -54,8 +56,7 @@ export class RenphoEs26bbAdapter implements ScaleAdapter {
   private ctx: ConnectionContext | null = null;
 
   matches(device: BleDeviceInfo): boolean {
-    const name = (device.localName || '').toLowerCase();
-    return name === 'es-26bb-b';
+    return matchesDescriptor(device, this.match);
   }
 
   async onConnected(ctx: ConnectionContext): Promise<void> {

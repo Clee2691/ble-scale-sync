@@ -6,6 +6,7 @@ import type {
   BodyComposition,
 } from '../interfaces/scale-adapter.js';
 import { uuid16, buildPayload } from './body-comp-helpers.js';
+import type { MatchDescriptor } from './match-descriptor.js';
 
 /**
  * Ported from openScale's RenphoHandler.kt
@@ -36,6 +37,12 @@ const SVC_QN_T2 = 'fff0';
 
 export class RenphoScaleAdapter implements ScaleAdapter {
   readonly name = 'Renpho ES-WBE28';
+  readonly match: MatchDescriptor = {
+    priority: 240,
+    custom: true,
+    names: { includes: ['renpho'] },
+    serviceUuids: ['181b', '181d'],
+  };
   readonly charNotifyUuid = CHR_WEIGHT;
   readonly charWriteUuid = CHR_CUSTOM0;
   readonly normalizesWeight = true;

@@ -9,6 +9,7 @@ import type {
 } from '../interfaces/scale-adapter.js';
 import { uuid16 } from './body-comp-helpers.js';
 import { bleLog } from '../ble/types.js';
+import type { MatchDescriptor } from './match-descriptor.js';
 
 /** Format bytes as hex string for debug logging. */
 const hex = (data: number[] | Buffer): string =>
@@ -114,6 +115,14 @@ const STORED_QUERY_RETRY_MS = 3000;
 
 export class QnScaleAdapter implements ScaleAdapter {
   readonly name = 'QN Scale';
+  readonly match: MatchDescriptor = {
+    priority: 250,
+    custom: true,
+    names: { includes: ['qn-scale', 'renpho', 'senssun', 'sencor'] },
+    serviceUuids: ['ae00', 'ffe0', 'fff0'],
+    charUuids: ['ae01', 'ae02'],
+    manufacturerId: 0xffff,
+  };
   readonly charNotifyUuid = CHR_NOTIFY;
   readonly charWriteUuid = CHR_WRITE;
   readonly altCharNotifyUuid = CHR_NOTIFY_T1;

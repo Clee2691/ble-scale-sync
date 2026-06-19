@@ -9,6 +9,7 @@ import type {
 } from '../interfaces/scale-adapter.js';
 import { buildPayload, computeBiaFat } from './body-comp-helpers.js';
 import { bleLog } from '../ble/types.js';
+import type { MatchDescriptor } from './match-descriptor.js';
 
 /** Xiaomi MiService advertisement service UUID (normalized 32-char form). */
 const SVC_FE95 = '0000fe9500001000800000805f9b34fb';
@@ -103,6 +104,12 @@ export function parseS800Object(decrypted: Buffer): ScaleReading | null {
  */
 export class XiaomiS800Adapter implements ScaleAdapter {
   readonly name = 'Xiaomi Mijia Scale S800';
+  readonly match: MatchDescriptor = {
+    priority: 200,
+    custom: true,
+    names: { includes: ['mijia scale s800'] },
+    serviceUuids: ['fe95'],
+  };
   // Broadcast-only: no GATT characteristics. preferPassive forces the broadcast
   // path even though the scale is connectable.
   readonly charNotifyUuid = '';

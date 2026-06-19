@@ -9,6 +9,7 @@ import type {
 } from '../interfaces/scale-adapter.js';
 import { uuid16, buildPayload } from './body-comp-helpers.js';
 import { bleLog } from '../ble/types.js';
+import type { MatchDescriptor } from './match-descriptor.js';
 
 // ─── Robi S9 (Lefu / Fitdays FFB0-new protocol) ─────────────────────────────
 
@@ -62,6 +63,13 @@ const WEIGHT_DIV = 1000;
  */
 export class RobiS9Adapter implements ScaleAdapter {
   readonly name = 'Robi S9';
+  readonly match: MatchDescriptor = {
+    priority: 40,
+    custom: true,
+    names: { includes: ['robi'] },
+    serviceUuids: ['ffb0'],
+    charUuids: ['ffb3'],
+  };
   // Legacy single-char fields (unused in multi-char mode).
   readonly charNotifyUuid = CHR_FFB2;
   readonly charWriteUuid = CHR_FFB1;

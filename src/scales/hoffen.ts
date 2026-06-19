@@ -7,6 +7,7 @@ import type {
   BodyComposition,
 } from '../interfaces/scale-adapter.js';
 import { uuid16, buildPayload, xorChecksum, type ScaleBodyComp } from './body-comp-helpers.js';
+import { matchesDescriptor, type MatchDescriptor } from './match-descriptor.js';
 
 /**
  * Adapter for the Hoffen BS-8107 body-fat scale.
@@ -24,6 +25,7 @@ import { uuid16, buildPayload, xorChecksum, type ScaleBodyComp } from './body-co
  */
 export class HoffenAdapter implements ScaleAdapter {
   readonly name = 'Hoffen BS-8107';
+  readonly match: MatchDescriptor = { priority: 20, names: { exact: ['hoffen bs-8107'] } };
   readonly charNotifyUuid = uuid16(0xffb2);
   readonly charWriteUuid = uuid16(0xffb2);
   readonly normalizesWeight = true;
@@ -37,8 +39,7 @@ export class HoffenAdapter implements ScaleAdapter {
   private cachedVisceral = 0;
 
   matches(device: BleDeviceInfo): boolean {
-    const name = (device.localName || '').toLowerCase();
-    return name === 'hoffen bs-8107';
+    return matchesDescriptor(device, this.match);
   }
 
   /**

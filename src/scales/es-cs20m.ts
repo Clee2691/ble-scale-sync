@@ -6,6 +6,7 @@ import type {
   BodyComposition,
 } from '../interfaces/scale-adapter.js';
 import { uuid16, buildPayload, type ScaleBodyComp } from './body-comp-helpers.js';
+import { matchesDescriptor, type MatchDescriptor } from './match-descriptor.js';
 
 const CHR_NOTIFY = uuid16(0x2a10);
 const CHR_WRITE = uuid16(0x2a11);
@@ -33,6 +34,11 @@ const CHR_WRITE = uuid16(0x2a11);
  */
 export class EsCs20mAdapter implements ScaleAdapter {
   readonly name = 'ES-CS20M';
+  readonly match: MatchDescriptor = {
+    priority: 130,
+    names: { includes: ['es-cs20m', 'es-32md'], startsWith: ['113360_'] },
+    serviceUuids: ['1a10'],
+  };
   readonly charNotifyUuid = CHR_NOTIFY;
   readonly charWriteUuid = CHR_WRITE;
   readonly normalizesWeight = true;
@@ -45,13 +51,7 @@ export class EsCs20mAdapter implements ScaleAdapter {
   private lastWeight = 0;
 
   matches(device: BleDeviceInfo): boolean {
-    const name = (device.localName || '').toLowerCase();
-    if (name.includes('es-cs20m') || name.includes('es-32md')) return true;
-    if (name.startsWith('113360_')) return true;
-
-    // Fallback: match by vendor service UUID (0x1A10) for unnamed devices
-    const uuids = (device.serviceUuids || []).map((u) => u.toLowerCase());
-    return uuids.some((u) => u === '1a10' || u === uuid16(0x1a10));
+    return matchesDescriptor(device, this.match);
   }
 
   /**

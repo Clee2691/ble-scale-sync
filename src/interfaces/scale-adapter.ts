@@ -1,3 +1,6 @@
+import type { MatchDescriptor } from '../scales/match-descriptor.js';
+export type { MatchDescriptor };
+
 export type Gender = 'male' | 'female';
 
 /** Minimal BLE advertisement info needed for adapter matching. */
@@ -226,6 +229,18 @@ export interface ScaleAdapter {
    * immediately instead of waiting out the hold window.
    */
   isFinal?(reading: ScaleReading): boolean;
+
+  /**
+   * Declarative match descriptor: precedence (`priority`) plus the names,
+   * services, characteristics, and manufacturer id this adapter claims.
+   * OPTIONAL on the interface (so test mocks may omit it) but REQUIRED for every
+   * adapter in the production registry, enforced by registry-check. The central
+   * resolver orders adapters by `priority` and registry-check uses the claims
+   * for overlap detection and to derive the generic adapter's exclusion set.
+   * Adapters whose runtime predicate is not fully data expressible set
+   * `custom: true` and keep a bespoke `matches()`.
+   */
+  readonly match?: MatchDescriptor;
 
   matches(device: BleDeviceInfo): boolean;
   parseNotification(data: Buffer): ScaleReading | null;

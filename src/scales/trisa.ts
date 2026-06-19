@@ -8,6 +8,7 @@ import type {
   BodyComposition,
 } from '../interfaces/scale-adapter.js';
 import { uuid16, buildPayload, type ScaleBodyComp } from './body-comp-helpers.js';
+import { matchesDescriptor, type MatchDescriptor } from './match-descriptor.js';
 import { bleLog } from '../ble/types.js';
 
 // Original Trisa firmware exposes 0x8A21 (notify) for measurement.
@@ -61,6 +62,7 @@ type Variant = 'trisa' | 'ade';
  */
 export class TrisaAdapter implements ScaleAdapter {
   readonly name = 'Trisa';
+  readonly match: MatchDescriptor = { priority: 140, names: { startsWith: ['01257b', '11257b'] } };
   // Legacy single-char fallback (only used when `characteristics` is ignored).
   readonly charNotifyUuid = CHR_MEASUREMENT_TRISA;
   readonly charWriteUuid = CHR_DOWNLOAD;
@@ -90,8 +92,7 @@ export class TrisaAdapter implements ScaleAdapter {
   private writeFn: ConnectionContext['write'] | null = null;
 
   matches(device: BleDeviceInfo): boolean {
-    const name = (device.localName || '').toUpperCase();
-    return name.startsWith('01257B') || name.startsWith('11257B');
+    return matchesDescriptor(device, this.match);
   }
 
   async onConnected(ctx: ConnectionContext): Promise<void> {

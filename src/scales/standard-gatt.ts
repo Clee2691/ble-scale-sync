@@ -6,6 +6,7 @@ import type {
   UserProfile,
   BodyComposition,
 } from '../interfaces/scale-adapter.js';
+import type { MatchDescriptor } from './match-descriptor.js';
 
 // Standard BT SIG characteristic UUIDs
 const CHR_BODY_COMP_MEAS = uuid16(0x2a9c);
@@ -103,6 +104,24 @@ interface CachedGattData {
  */
 export class StandardGattScaleAdapter implements ScaleAdapter {
   readonly name = 'Standard GATT (BCS/WSS)';
+  readonly match: MatchDescriptor = {
+    priority: 0,
+    custom: true,
+    names: {
+      includes: [
+        'beurer',
+        'silvercrest',
+        'bf105',
+        'bf720',
+        'bf950',
+        'bf500',
+        'bf600',
+        'bf850',
+        'medisana',
+      ],
+    },
+    serviceUuids: ['181b', '181d'],
+  };
   readonly charNotifyUuid = CHR_BODY_COMP_MEAS;
   readonly charWriteUuid = CHR_USER_CONTROL_POINT;
   readonly normalizesWeight = true;

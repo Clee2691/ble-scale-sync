@@ -6,6 +6,7 @@ import type {
   BodyComposition,
 } from '../interfaces/scale-adapter.js';
 import { uuid16, buildPayload } from './body-comp-helpers.js';
+import type { MatchDescriptor } from './match-descriptor.js';
 
 // Beurer/Sanitas custom BLE service + characteristic
 const CHR_FFE1 = uuid16(0xffe1);
@@ -60,6 +61,27 @@ const BF710_COMPOSITION_HOLD_MS = 15000;
 
 export class BeurerSanitasScaleAdapter implements ScaleAdapter {
   readonly name = 'Beurer / Sanitas';
+  readonly match: MatchDescriptor = {
+    priority: 180,
+    custom: true,
+    names: {
+      includes: [
+        'bf-700',
+        'beurer bf700',
+        'bf-800',
+        'beurer bf800',
+        'rt-libra-b',
+        'rt-libra-w',
+        'libra-b',
+        'libra-w',
+        'bf700',
+        'beurer bf710',
+        'sanitas sbf70',
+        'sbf75',
+        'aicdscale1',
+      ],
+    },
+  };
   readonly charNotifyUuid = CHR_FFE1;
   readonly charWriteUuid = CHR_FFE1;
   readonly normalizesWeight = true;

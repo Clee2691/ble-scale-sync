@@ -7,6 +7,7 @@ import type {
   BodyComposition,
 } from '../interfaces/scale-adapter.js';
 import { uuid16, buildPayload, xorChecksum, type ScaleBodyComp } from './body-comp-helpers.js';
+import type { MatchDescriptor } from './match-descriptor.js';
 
 const SVC_UUID = uuid16(0xfff0);
 const CHR_NOTIFY = uuid16(0xfff1);
@@ -27,6 +28,13 @@ const KNOWN_NAMES = ['000fatscale01', '000fatscale02', '042fatscale01'];
  */
 export class InlifeScaleAdapter implements ScaleAdapter {
   readonly name = 'Inlife';
+  readonly match: MatchDescriptor = {
+    priority: 90,
+    custom: true,
+    names: { exact: ['000fatscale01', '000fatscale02', '042fatscale01'] },
+    serviceUuids: ['fff0'],
+    charUuids: ['fff2'],
+  };
   readonly charNotifyUuid = CHR_NOTIFY;
   readonly charWriteUuid = CHR_WRITE;
   readonly normalizesWeight = true;

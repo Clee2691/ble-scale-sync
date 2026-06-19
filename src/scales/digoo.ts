@@ -7,6 +7,7 @@ import type {
   BodyComposition,
 } from '../interfaces/scale-adapter.js';
 import { uuid16, buildPayload, type ScaleBodyComp } from './body-comp-helpers.js';
+import { matchesDescriptor, type MatchDescriptor } from './match-descriptor.js';
 
 const CHR_NOTIFY = uuid16(0xfff1);
 const CHR_WRITE = uuid16(0xfff2);
@@ -26,6 +27,7 @@ const CHR_WRITE = uuid16(0xfff2);
  */
 export class DigooScaleAdapter implements ScaleAdapter {
   readonly name = 'Digoo';
+  readonly match: MatchDescriptor = { priority: 80, names: { exact: ['mengii'] } };
   readonly charNotifyUuid = CHR_NOTIFY;
   readonly charWriteUuid = CHR_WRITE;
   readonly normalizesWeight = true;
@@ -40,8 +42,7 @@ export class DigooScaleAdapter implements ScaleAdapter {
   private allValues = false;
 
   matches(device: BleDeviceInfo): boolean {
-    const name = (device.localName || '').toLowerCase();
-    return name === 'mengii';
+    return matchesDescriptor(device, this.match);
   }
 
   /**

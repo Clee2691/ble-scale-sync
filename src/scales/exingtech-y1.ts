@@ -1,7 +1,8 @@
 import type {
   BleDeviceInfo,
   ConnectionContext,
-  ScaleAdapter,
+  ScaleAdapterCore,
+  GattWiring,
   ScaleReading,
   UserProfile,
   BodyComposition,
@@ -23,7 +24,7 @@ const CHR_WRITE = '29f1108075b911e28bf60002a5d5c51b';
  *   - Body comp fields at subsequent offsets, each BE uint16 / 10
  *   - Complete when fat byte at [6] is not 0xFF
  */
-export class ExingtechY1Adapter implements ScaleAdapter {
+export class ExingtechY1Adapter implements ScaleAdapterCore, GattWiring {
   readonly name = 'Exingtech Y1';
   readonly match: MatchDescriptor = {
     priority: 120,

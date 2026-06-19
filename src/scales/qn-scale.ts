@@ -2,7 +2,9 @@ import { computeBiaFat, buildPayload } from './body-comp-helpers.js';
 import type {
   BleDeviceInfo,
   ConnectionContext,
-  ScaleAdapter,
+  ScaleAdapterCore,
+  GattWiring,
+  BroadcastSource,
   ScaleReading,
   UserProfile,
   BodyComposition,
@@ -113,7 +115,7 @@ const MAX_STORED_RECORD_AGE_SEC = 90;
 const MAX_STORED_QUERY_ATTEMPTS = 6;
 const STORED_QUERY_RETRY_MS = 3000;
 
-export class QnScaleAdapter implements ScaleAdapter {
+export class QnScaleAdapter implements ScaleAdapterCore, GattWiring, BroadcastSource {
   readonly name = 'QN Scale';
   readonly match: MatchDescriptor = {
     priority: 250,

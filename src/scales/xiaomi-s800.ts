@@ -3,7 +3,9 @@ import type {
   AdapterRuntimeConfig,
   BleDeviceInfo,
   BodyComposition,
-  ScaleAdapter,
+  ScaleAdapterCore,
+  GattWiring,
+  BroadcastSource,
   ScaleReading,
   UserProfile,
 } from '../interfaces/scale-adapter.js';
@@ -102,7 +104,7 @@ export function parseS800Object(decrypted: Buffer): ScaleReading | null {
  * the encrypted Mi-auth GATT path (per-user token) and is out of scope; weight
  * plus the user profile drives the existing body-composition pipeline (#232).
  */
-export class XiaomiS800Adapter implements ScaleAdapter {
+export class XiaomiS800Adapter implements ScaleAdapterCore, GattWiring, BroadcastSource {
   readonly name = 'Xiaomi Mijia Scale S800';
   readonly match: MatchDescriptor = {
     priority: 200,

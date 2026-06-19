@@ -1,7 +1,8 @@
 import type {
   BleDeviceInfo,
   ConnectionContext,
-  ScaleAdapter,
+  ScaleAdapterCore,
+  GattWiring,
   ScaleReading,
   UserProfile,
   BodyComposition,
@@ -25,7 +26,7 @@ const CHR_WRITE = uuid16(0xfff2);
  *     water at [11-12] BE / 10, muscle at [16-17] BE / 10, bone at [18] / 10
  *   - Complete when weight > 0 and both stable and all-values bits are set
  */
-export class DigooScaleAdapter implements ScaleAdapter {
+export class DigooScaleAdapter implements ScaleAdapterCore, GattWiring {
   readonly name = 'Digoo';
   readonly match: MatchDescriptor = { priority: 80, names: { exact: ['mengii'] } };
   readonly charNotifyUuid = CHR_NOTIFY;

@@ -2,7 +2,9 @@ import type {
   BleDeviceInfo,
   CharacteristicBinding,
   ConnectionContext,
-  ScaleAdapter,
+  ScaleAdapterCore,
+  GattWiring,
+  MultiCharNotify,
   ScaleReading,
   UserProfile,
   BodyComposition,
@@ -60,7 +62,7 @@ type Variant = 'trisa' | 'ade';
  * Variant detection happens in `onConnected()` via `ctx.availableChars`:
  * if 0x8A21 is missing but 0x8A24 is present → ADE.
  */
-export class TrisaAdapter implements ScaleAdapter {
+export class TrisaAdapter implements ScaleAdapterCore, GattWiring, MultiCharNotify {
   readonly name = 'Trisa';
   readonly match: MatchDescriptor = { priority: 140, names: { startsWith: ['01257b', '11257b'] } };
   // Legacy single-char fallback (only used when `characteristics` is ignored).

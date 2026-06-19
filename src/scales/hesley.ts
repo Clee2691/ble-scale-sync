@@ -1,6 +1,8 @@
 import type {
   BleDeviceInfo,
-  ScaleAdapter,
+  ScaleAdapterCore,
+  GattWiring,
+  Unlockable,
   ScaleReading,
   UserProfile,
   BodyComposition,
@@ -21,7 +23,7 @@ const CHR_WRITE = uuid16(0xfff1);
  *   - Fat at [4-5] BE / 10, water at [8-9] BE / 10
  *   - Muscle at [10-11] BE / 10, bone at [12-13] BE / 10
  */
-export class HesleyScaleAdapter implements ScaleAdapter {
+export class HesleyScaleAdapter implements ScaleAdapterCore, GattWiring, Unlockable {
   readonly name = 'Hesley';
   readonly match: MatchDescriptor = { priority: 100, names: { exact: ['yunchen'] } };
   readonly charNotifyUuid = CHR_NOTIFY;

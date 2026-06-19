@@ -1,6 +1,8 @@
 import type {
   BleDeviceInfo,
-  ScaleAdapter,
+  ScaleAdapterCore,
+  GattWiring,
+  Unlockable,
   ScaleReading,
   UserProfile,
   BodyComposition,
@@ -28,7 +30,7 @@ const RESP_MEASURED = 0x02;
  *
  * Body-composition formulas ported from openScale's YunmaiLib.
  */
-export class YunmaiScaleAdapter implements ScaleAdapter {
+export class YunmaiScaleAdapter implements ScaleAdapterCore, GattWiring, Unlockable {
   readonly name = 'Yunmai';
   readonly match: MatchDescriptor = {
     priority: 190,

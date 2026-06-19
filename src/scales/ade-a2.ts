@@ -62,7 +62,9 @@
 import type {
   BleDeviceInfo,
   ConnectionContext,
-  ScaleAdapter,
+  ScaleAdapterCore,
+  GattWiring,
+  MultiCharNotify,
   ScaleReading,
   UserProfile,
   BodyComposition,
@@ -136,7 +138,7 @@ export function buildAdeA2ChallengeResponse(challenge: Buffer, password: Buffer)
  * the exported helpers above and can be wired in once the missing pieces
  * (BLE name prefix, real char UUIDs, weight frame layout) are known.
  */
-export class AdeA2Adapter implements ScaleAdapter {
+export class AdeA2Adapter implements ScaleAdapterCore, GattWiring, MultiCharNotify {
   readonly name = 'ADE A2 (experimental)';
   readonly charNotifyUuid = UUID_TBD;
   readonly charWriteUuid = UUID_TBD;

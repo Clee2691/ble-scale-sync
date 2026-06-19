@@ -1,6 +1,8 @@
 import type {
   BleDeviceInfo,
-  ScaleAdapter,
+  ScaleAdapterCore,
+  GattWiring,
+  Unlockable,
   ScaleReading,
   UserProfile,
   BodyComposition,
@@ -23,7 +25,7 @@ import { matchesDescriptor, type MatchDescriptor } from './match-descriptor.js';
  *
  * Weight and impedance are cached across frames.
  */
-export class ActiveEraAdapter implements ScaleAdapter {
+export class ActiveEraAdapter implements ScaleAdapterCore, GattWiring, Unlockable {
   readonly name = 'Active Era BS-06';
   readonly match: MatchDescriptor = { priority: 50, names: { includes: ['ae bs-06'] } };
   readonly charNotifyUuid = uuid16(0xffb2);

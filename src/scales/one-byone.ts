@@ -1,7 +1,9 @@
 import type {
   BleDeviceInfo,
   ConnectionContext,
-  ScaleAdapter,
+  ScaleAdapterCore,
+  GattWiring,
+  Unlockable,
   ScaleReading,
   UserProfile,
   BodyComposition,
@@ -20,7 +22,7 @@ import { matchesDescriptor, type MatchDescriptor } from './match-descriptor.js';
  *   Weight at bytes [3-4] little-endian uint16 / 100 (kg).
  *   Impedance: ((data[2]<<8)+data[1]) * 0.1, valid when byte[9] != 1 and != 0.
  */
-export class OneByoneAdapter implements ScaleAdapter {
+export class OneByoneAdapter implements ScaleAdapterCore, GattWiring {
   readonly name = '1byone (Eufy)';
   readonly match: MatchDescriptor = {
     priority: 70,
@@ -102,7 +104,7 @@ export class OneByoneAdapter implements ScaleAdapter {
  *     0x01 = impedance: bytes [4-5] big-endian uint16.
  *     0x00 with byte[7]=0x80 = history (ignored).
  */
-export class OneByoneNewAdapter implements ScaleAdapter {
+export class OneByoneNewAdapter implements ScaleAdapterCore, GattWiring, Unlockable {
   readonly name = '1byone Scale (new)';
   readonly match: MatchDescriptor = {
     priority: 60,

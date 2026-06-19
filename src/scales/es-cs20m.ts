@@ -1,6 +1,8 @@
 import type {
   BleDeviceInfo,
-  ScaleAdapter,
+  ScaleAdapterCore,
+  GattWiring,
+  Unlockable,
   ScaleReading,
   UserProfile,
   BodyComposition,
@@ -32,7 +34,7 @@ const CHR_WRITE = uuid16(0x2a11);
  * flag in 0x14 frames. Instead, stability is signaled by a 0x11 STOP frame.
  * This adapter supports both paths.
  */
-export class EsCs20mAdapter implements ScaleAdapter {
+export class EsCs20mAdapter implements ScaleAdapterCore, GattWiring, Unlockable {
   readonly name = 'ES-CS20M';
   readonly match: MatchDescriptor = {
     priority: 130,

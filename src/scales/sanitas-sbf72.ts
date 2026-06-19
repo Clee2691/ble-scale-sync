@@ -1,6 +1,8 @@
 import type {
   BleDeviceInfo,
-  ScaleAdapter,
+  ScaleAdapterCore,
+  GattWiring,
+  Unlockable,
   ScaleReading,
   UserProfile,
   BodyComposition,
@@ -33,7 +35,7 @@ interface CachedGattData {
  * Subscribes to Body Composition Measurement (0x2A9C) for weight/fat data.
  * Unlock sends user list request to trigger connection handshake.
  */
-export class SanitasSbf72Adapter implements ScaleAdapter {
+export class SanitasSbf72Adapter implements ScaleAdapterCore, GattWiring, Unlockable {
   readonly name = 'Sanitas SBF72/73';
   readonly match: MatchDescriptor = {
     priority: 170,

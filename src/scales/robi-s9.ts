@@ -2,7 +2,9 @@ import type {
   BleDeviceInfo,
   CharacteristicBinding,
   ConnectionContext,
-  ScaleAdapter,
+  ScaleAdapterCore,
+  GattWiring,
+  MultiCharNotify,
   ScaleReading,
   UserProfile,
   BodyComposition,
@@ -61,7 +63,7 @@ const WEIGHT_DIV = 1000;
  * known-weight capture (#248), but the impedance offset and the scrambled body
  * composition are not decoded yet (BIA is used instead).
  */
-export class RobiS9Adapter implements ScaleAdapter {
+export class RobiS9Adapter implements ScaleAdapterCore, GattWiring, MultiCharNotify {
   readonly name = 'Robi S9';
   readonly match: MatchDescriptor = {
     priority: 40,

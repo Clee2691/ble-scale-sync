@@ -1,7 +1,8 @@
 import type {
   BleDeviceInfo,
   ConnectionContext,
-  ScaleAdapter,
+  ScaleAdapterCore,
+  GattWiring,
   ScaleReading,
   UserProfile,
   BodyComposition,
@@ -23,7 +24,7 @@ import { matchesDescriptor, type MatchDescriptor } from './match-descriptor.js';
  *     muscle at [10-11] LE /10, bone at [14] /10,
  *     visceral fat at [17-18] LE /10.
  */
-export class HoffenAdapter implements ScaleAdapter {
+export class HoffenAdapter implements ScaleAdapterCore, GattWiring {
   readonly name = 'Hoffen BS-8107';
   readonly match: MatchDescriptor = { priority: 20, names: { exact: ['hoffen bs-8107'] } };
   readonly charNotifyUuid = uuid16(0xffb2);

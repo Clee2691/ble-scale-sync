@@ -1,7 +1,8 @@
 import type {
   BleDeviceInfo,
   ConnectionContext,
-  ScaleAdapter,
+  ScaleAdapterCore,
+  GattWiring,
   ScaleReading,
   UserProfile,
   BodyComposition,
@@ -44,7 +45,7 @@ function isChecksumValid(data: Buffer): boolean {
  *   - Last byte = sum(prev) & 0xFF
  *   - Offline frames MUST be acked (55 AA 95 00 01 01 96), otherwise scale resends them on every reconnect.
  */
-export class RenphoEs26bbAdapter implements ScaleAdapter {
+export class RenphoEs26bbAdapter implements ScaleAdapterCore, GattWiring {
   readonly name = 'Renpho ES-26BB';
   readonly match: MatchDescriptor = { priority: 230, names: { exact: ['es-26bb-b'] } };
   readonly charNotifyUuid = CHR_RESULTS;

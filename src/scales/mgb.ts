@@ -1,7 +1,8 @@
 import type {
   BleDeviceInfo,
   ConnectionContext,
-  ScaleAdapter,
+  ScaleAdapterCore,
+  GattWiring,
   ScaleReading,
   UserProfile,
   BodyComposition,
@@ -23,7 +24,7 @@ import { matchesDescriptor, type MatchDescriptor } from './match-descriptor.js';
  *
  * Values are cached across frames until a complete reading is available.
  */
-export class MgbAdapter implements ScaleAdapter {
+export class MgbAdapter implements ScaleAdapterCore, GattWiring {
   readonly name = 'MGB (Swan/Icomon/YG)';
   readonly match: MatchDescriptor = {
     priority: 30,

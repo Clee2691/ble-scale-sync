@@ -1,7 +1,8 @@
 import type {
   BleDeviceInfo,
   ConnectionContext,
-  ScaleAdapter,
+  ScaleAdapterCore,
+  GattWiring,
   ScaleReading,
   UserProfile,
   BodyComposition,
@@ -23,7 +24,7 @@ const CHR_WRITE = uuid16(0xfff1);
  *   - Visceral fat at [11], water at [12-13] BE / 10
  *   - Complete when weight > 0 and fat byte at [6] is not 0xFF
  */
-export class ExcelvanCF369Adapter implements ScaleAdapter {
+export class ExcelvanCF369Adapter implements ScaleAdapterCore, GattWiring {
   readonly name = 'Excelvan CF369';
   readonly match: MatchDescriptor = { priority: 110, names: { exact: ['electronic scale'] } };
   readonly charNotifyUuid = CHR_NOTIFY;

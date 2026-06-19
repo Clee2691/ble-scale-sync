@@ -1,6 +1,8 @@
 import type {
   BleDeviceInfo,
-  ScaleAdapter,
+  ScaleAdapterCore,
+  GattWiring,
+  Unlockable,
   ScaleReading,
   UserProfile,
   BodyComposition,
@@ -29,7 +31,7 @@ const FRAME_ALL = FRAME_WEIGHT | FRAME_FAT | FRAME_MUSCLE | FRAME_BMR;
  *   0xD0 = BMR (ignored).
  * Measurement is complete when all 4 frame types have been received.
  */
-export class SenssunAdapter implements ScaleAdapter {
+export class SenssunAdapter implements ScaleAdapterCore, GattWiring, Unlockable {
   readonly name = 'Senssun Fat Scale';
   readonly match: MatchDescriptor = { priority: 260, names: { exact: ['senssun fat'] } };
   readonly charNotifyUuid = uuid16(0xfff1);

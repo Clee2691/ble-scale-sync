@@ -2,7 +2,9 @@ import type {
   BleDeviceInfo,
   CharacteristicBinding,
   ConnectionContext,
-  ScaleAdapter,
+  ScaleAdapterCore,
+  GattWiring,
+  MultiCharNotify,
   ScaleReading,
   UserProfile,
   BodyComposition,
@@ -67,7 +69,7 @@ interface CachedComp {
  * Protocol decoded from an openScale HCI snoop (#168) and cross-checked
  * against openScale's StandardWeightProfileHandler.
  */
-export class BeurerBf720Adapter implements ScaleAdapter {
+export class BeurerBf720Adapter implements ScaleAdapterCore, GattWiring, MultiCharNotify {
   readonly name = 'Beurer BF720/BF105';
   readonly match: MatchDescriptor = {
     priority: 220,

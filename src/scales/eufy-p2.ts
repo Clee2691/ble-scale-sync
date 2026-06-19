@@ -4,7 +4,10 @@ import type {
   BleDeviceInfo,
   CharacteristicBinding,
   ConnectionContext,
-  ScaleAdapter,
+  ScaleAdapterCore,
+  GattWiring,
+  MultiCharNotify,
+  BroadcastSource,
   ScaleReading,
   UserProfile,
   BodyComposition,
@@ -271,7 +274,9 @@ export function parseEufyAdvertisement(vendor: Buffer): ScaleReading | null {
   return { weight, impedance: 0 };
 }
 
-export class EufyP2Adapter implements ScaleAdapter {
+export class EufyP2Adapter
+  implements ScaleAdapterCore, GattWiring, MultiCharNotify, BroadcastSource
+{
   readonly name = 'Eufy Smart Scale P2/P2 Pro';
   readonly match: MatchDescriptor = {
     priority: 270,

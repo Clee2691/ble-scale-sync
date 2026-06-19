@@ -1,7 +1,8 @@
 import type {
   BleDeviceInfo,
   ConnectionContext,
-  ScaleAdapter,
+  ScaleAdapterCore,
+  GattWiring,
   ScaleReading,
   UserProfile,
   BodyComposition,
@@ -23,7 +24,7 @@ const CHR_WRITE = uuid16(0x8a81);
  *     - Feature frame (>= 16 bytes): fat, water, muscle, bone at various offsets
  *   - Values cached across frames; complete when weight > 0 and fat > 0
  */
-export class MedisanaBs44xAdapter implements ScaleAdapter {
+export class MedisanaBs44xAdapter implements ScaleAdapterCore, GattWiring {
   readonly name = 'Medisana BS44x';
   readonly match: MatchDescriptor = {
     priority: 150,

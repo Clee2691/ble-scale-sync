@@ -1,7 +1,8 @@
 import type {
   BleDeviceInfo,
   ConnectionContext,
-  ScaleAdapter,
+  ScaleAdapterCore,
+  GattWiring,
   ScaleReading,
   UserProfile,
   BodyComposition,
@@ -26,7 +27,7 @@ const KNOWN_NAMES = ['000fatscale01', '000fatscale02', '042fatscale01'];
  *   - Else legacy mode: LBM at [4-6] 24-bit BE / 1000,
  *     visceral at [7-8] BE / 10, BMR at [9-10] BE / 10
  */
-export class InlifeScaleAdapter implements ScaleAdapter {
+export class InlifeScaleAdapter implements ScaleAdapterCore, GattWiring {
   readonly name = 'Inlife';
   readonly match: MatchDescriptor = {
     priority: 90,

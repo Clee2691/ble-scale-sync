@@ -1,6 +1,8 @@
 import type {
   BleDeviceInfo,
-  ScaleAdapter,
+  ScaleAdapterCore,
+  GattWiring,
+  Unlockable,
   ScaleReading,
   UserProfile,
   BodyComposition,
@@ -27,7 +29,7 @@ const CHR_CMD = '352e300228e940b8a3616db4cca4147c';
  *
  * Unlock sends a history request command periodically.
  */
-export class SoehnleScaleAdapter implements ScaleAdapter {
+export class SoehnleScaleAdapter implements ScaleAdapterCore, GattWiring, Unlockable {
   readonly name = 'Soehnle Shape/Style';
   readonly match: MatchDescriptor = {
     priority: 160,

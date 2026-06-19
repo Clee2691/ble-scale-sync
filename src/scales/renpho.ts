@@ -1,6 +1,8 @@
 import type {
   BleDeviceInfo,
-  ScaleAdapter,
+  ScaleAdapterCore,
+  GattWiring,
+  Unlockable,
   ScaleReading,
   UserProfile,
   BodyComposition,
@@ -35,7 +37,7 @@ const CHR_CUSTOM0 = uuid16(0xffe2); // write  — vendor magic commands
 const SVC_QN_T1 = 'ffe0';
 const SVC_QN_T2 = 'fff0';
 
-export class RenphoScaleAdapter implements ScaleAdapter {
+export class RenphoScaleAdapter implements ScaleAdapterCore, GattWiring, Unlockable {
   readonly name = 'Renpho ES-WBE28';
   readonly match: MatchDescriptor = {
     priority: 240,

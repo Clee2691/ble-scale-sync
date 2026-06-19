@@ -1,7 +1,9 @@
 import { computeBiaFat, buildPayload, uuid16 } from './body-comp-helpers.js';
 import type {
   BleDeviceInfo,
-  ScaleAdapter,
+  ScaleAdapterCore,
+  GattWiring,
+  Unlockable,
   ScaleReading,
   UserProfile,
   BodyComposition,
@@ -48,7 +50,7 @@ interface CachedGattData {
  * Parses the standard GATT flags for unit detection, body fat, impedance,
  * weight, water mass, and muscle percentage.
  */
-export class StandardGattScaleAdapter implements ScaleAdapter {
+export class StandardGattScaleAdapter implements ScaleAdapterCore, GattWiring, Unlockable {
   readonly name = 'Standard GATT (BCS/WSS)';
   readonly match: MatchDescriptor = {
     priority: 0,

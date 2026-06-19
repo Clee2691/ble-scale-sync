@@ -1,6 +1,9 @@
 import type {
   BleDeviceInfo,
-  ScaleAdapter,
+  ScaleAdapterCore,
+  GattWiring,
+  Unlockable,
+  BroadcastSource,
   ScaleReading,
   UserProfile,
   BodyComposition,
@@ -30,7 +33,7 @@ const SVC_BODY_COMP = '0000181b00001000800000805f9b34fb';
  * Body-composition math is ported from openScale's MiScaleLib
  * (originally by prototux / MIBCS reverse-engineering).
  */
-export class MiScale2Adapter implements ScaleAdapter {
+export class MiScale2Adapter implements ScaleAdapterCore, GattWiring, Unlockable, BroadcastSource {
   readonly name = 'Xiaomi Mi Scale 2';
   readonly match: MatchDescriptor = {
     priority: 210,

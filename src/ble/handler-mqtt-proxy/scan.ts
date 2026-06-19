@@ -7,6 +7,7 @@ import type { MqttProxyConfig } from '../../config/schema.js';
 import type { ScanOptions, ScanResult } from '../types.js';
 import type { RawReading } from '../shared.js';
 import { waitForRawReading } from '../shared.js';
+import { resolveAdapter } from '../../scales/resolve.js';
 import { evaluateAdvertisement } from '../advertisement.js';
 import { bleLog, normalizeUuid, withTimeout } from '../types.js';
 import { COMMAND_TIMEOUT_MS, topics, type Topics } from './topics.js';
@@ -149,7 +150,7 @@ export async function scanAndReadRaw(opts: ScanOptions): Promise<RawReading> {
 
     for (const entry of candidates) {
       const info = toBleDeviceInfo(entry);
-      const adapter = adapters.find((a) => a.matches(info));
+      const adapter = resolveAdapter(info, adapters);
       if (!adapter) continue;
 
       bleLog.info(`Matched: ${adapter.name} (${entry.name || entry.address})`);
@@ -259,7 +260,7 @@ export async function scanDevices(
 
     return scanResults.map((entry) => {
       const info = toBleDeviceInfo(entry);
-      const matched = adapters.find((a) => a.matches(info));
+      const matched = resolveAdapter(info, adapters);
       return {
         address: entry.address,
         name: entry.name,

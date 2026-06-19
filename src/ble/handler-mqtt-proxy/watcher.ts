@@ -2,6 +2,7 @@ import type { ScaleAdapter, UserProfile } from '../../interfaces/scale-adapter.j
 import type { MqttProxyConfig } from '../../config/schema.js';
 import type { RawReading } from '../shared.js';
 import { waitForRawReading } from '../shared.js';
+import { resolveAdapter } from '../../scales/resolve.js';
 import { evaluateAdvertisement, GraceTimers, DedupWindow } from '../advertisement.js';
 import type { Watcher, WatcherConfig } from '../reading-source.js';
 import { bleLog, withTimeout, errMsg, IMPEDANCE_GRACE_MS } from '../types.js';
@@ -197,7 +198,7 @@ export class ReadingWatcher implements Watcher {
 
         for (const entry of candidates) {
           const info = toBleDeviceInfo(entry);
-          const adapter = this.adapters.find((a) => a.matches(info));
+          const adapter = resolveAdapter(info, this.adapters);
           if (!adapter) continue;
 
           const decision = evaluateAdvertisement(adapter, info);
@@ -431,18 +432,23 @@ export class ReadingWatcher implements Watcher {
       // Match the address to an adapter
       const info = toBleDeviceInfo({ address: data.address, name: '', rssi: 0, services: [] });
       // For autonomous connect, we match by scanning the chars for known notify UUIDs
-      const adapter = this.adapters.find((a) => {
-        // Try matching by device info first
-        if (a.matches(info)) return true;
-        // Also match by charNotifyUuid: the ESP32 already connected, so the
-        // adapter may match only by its GATT characteristic.
-        // Normalize both sides (case + 16-bit vs 128-bit) to avoid silent mismatches.
-        if (a.charNotifyUuid) {
-          const normalized = normalizeUuid(a.charNotifyUuid);
-          return data.chars.some((c) => normalizeUuid(c.uuid) === normalized);
-        }
-        return false;
-      });
+      // Order by descriptor priority (mirrors resolveAdapter) then apply the
+      // per-adapter OR of matches() and a charNotify match. A stable sort keeps
+      // the input order for ties, so behavior matches the prior array-order find.
+      const adapter = [...this.adapters]
+        .sort((a, b) => (b.match?.priority ?? 0) - (a.match?.priority ?? 0))
+        .find((a) => {
+          // Try matching by device info first
+          if (a.matches(info)) return true;
+          // Also match by charNotifyUuid: the ESP32 already connected, so the
+          // adapter may match only by its GATT characteristic.
+          // Normalize both sides (case + 16-bit vs 128-bit) to avoid silent mismatches.
+          if (a.charNotifyUuid) {
+            const normalized = normalizeUuid(a.charNotifyUuid);
+            return data.chars.some((c) => normalizeUuid(c.uuid) === normalized);
+          }
+          return false;
+        });
 
       if (!adapter) {
         bleLog.warn(

@@ -2,6 +2,7 @@ import type { ScaleAdapter, BodyComposition } from '../../interfaces/scale-adapt
 import type { EsphomeProxyConfig } from '../../config/schema.js';
 import type { ScanOptions, ScanResult } from '../types.js';
 import { type RawReading, waitForRawReading } from '../shared.js';
+import { resolveAdapter } from '../../scales/resolve.js';
 import { evaluateAdvertisement, GraceTimers } from '../advertisement.js';
 import { bleLog, errMsg, withTimeout, IMPEDANCE_GRACE_MS } from '../types.js';
 import { EsphomeProxyPool } from './pool.js';
@@ -92,7 +93,7 @@ export async function scanAndReadRaw(opts: ScanOptions): Promise<RawReading> {
             const addrLc = address.toLowerCase();
             if (targetLc && addrLc !== targetLc) return;
 
-            const adapter = adapters.find((a) => a.matches(info));
+            const adapter = resolveAdapter(info, adapters);
             if (!adapter) {
               if (!seenAddrs.has(address)) {
                 seenAddrs.add(address);
@@ -204,7 +205,7 @@ export async function scanDevices(
     await pool.start();
     const unsub = pool.onAdvertisement((info, address) => {
       if (results.has(address)) return;
-      const adapter = adapters.find((a) => a.matches(info));
+      const adapter = resolveAdapter(info, adapters);
       results.set(address, {
         address,
         name: info.localName || '',

@@ -6,6 +6,7 @@ import type {
 } from '../../interfaces/scale-adapter.js';
 import type { EsphomeProxyConfig } from '../../config/schema.js';
 import { type RawReading, waitForRawReading } from '../shared.js';
+import { resolveAdapter } from '../../scales/resolve.js';
 import { evaluateAdvertisement, GraceTimers, DedupWindow } from '../advertisement.js';
 import type { Watcher, WatcherConfig } from '../reading-source.js';
 import { bleLog, errMsg, IMPEDANCE_GRACE_MS } from '../types.js';
@@ -106,7 +107,7 @@ export class ReadingWatcher implements Watcher {
     const addrLc = address.toLowerCase();
     if (this.targetMac && addrLc !== this.targetMac) return;
 
-    const adapter = this.adapters.find((a) => a.matches(info));
+    const adapter = resolveAdapter(info, this.adapters);
     if (!adapter) return;
 
     // waitForBroadcast:false — this watcher GATT-connects devices whose

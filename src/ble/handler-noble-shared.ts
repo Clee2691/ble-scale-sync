@@ -9,6 +9,7 @@ import type { ScanOptions, ScanResult } from './types.js';
 import type { BleChar, BleDevice, RawReading } from './shared.js';
 import { waitForRawReading } from './shared.js';
 import { evaluateAdvertisement, GraceTimers } from './advertisement.js';
+import { resolveAdapter } from '../scales/resolve.js';
 import {
   bleLog,
   normalizeUuid,
@@ -284,7 +285,7 @@ export function createNobleHandler({ noble, getState }: NobleHandlerDeps) {
             serviceUuids: svcUuids,
             manufacturerData: mfgData,
           };
-          const matched = adapters.find((a) => a.matches(info));
+          const matched = resolveAdapter(info, adapters);
           if (!matched) return;
 
           bleLog.info(`Auto-discovered: ${matched.name} (${name} [${addr}])`);
@@ -457,7 +458,7 @@ export function createNobleHandler({ noble, getState }: NobleHandlerDeps) {
           serviceUuids: advSvcUuids,
           manufacturerData: mfgData,
         };
-        broadcastAdapter = adapters.find((a) => a.matches(info));
+        broadcastAdapter = resolveAdapter(info, adapters);
       }
 
       // Use broadcast scanning when the device is non-connectable or the matched
@@ -526,7 +527,7 @@ export function createNobleHandler({ noble, getState }: NobleHandlerDeps) {
           bleLog.debug(`Services: [${serviceUuids.join(', ')}]`);
 
           const info: BleDeviceInfo = { localName: name, serviceUuids, characteristicUuids };
-          const found = adapters.find((a) => a.matches(info));
+          const found = resolveAdapter(info, adapters);
           if (!found) {
             throw new Error(
               `Device found (${name}) but no adapter recognized it. ` +
@@ -593,7 +594,7 @@ export function createNobleHandler({ noble, getState }: NobleHandlerDeps) {
         serviceUuids: svcUuids,
         manufacturerData: mfgData,
       };
-      const matched = adapters.find((a) => a.matches(info));
+      const matched = resolveAdapter(info, adapters);
 
       results.push({
         address: addr,

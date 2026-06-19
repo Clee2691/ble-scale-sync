@@ -56,7 +56,8 @@ export interface BleDevice {
 
 // ─── Internal helpers ────────────────────────────────────────────────────────
 
-function resolveChar(charMap: Map<string, BleChar>, uuid: string): BleChar | undefined {
+function resolveChar(charMap: Map<string, BleChar>, uuid: string | undefined): BleChar | undefined {
+  if (uuid === undefined) return undefined;
   return charMap.get(normalizeUuid(uuid));
 }
 
@@ -114,12 +115,12 @@ export function findMissingCharacteristics(
   const hasNotify =
     !!resolveChar(charMap, adapter.charNotifyUuid) ||
     (!!adapter.altCharNotifyUuid && !!resolveChar(charMap, adapter.altCharNotifyUuid));
-  if (!hasNotify) missing.push(adapter.charNotifyUuid);
+  if (!hasNotify) missing.push(adapter.charNotifyUuid ?? '<no notify uuid>');
 
   const hasWrite =
     !!resolveChar(charMap, adapter.charWriteUuid) ||
     (!!adapter.altCharWriteUuid && !!resolveChar(charMap, adapter.altCharWriteUuid));
-  if (!hasWrite) missing.push(adapter.charWriteUuid);
+  if (!hasWrite) missing.push(adapter.charWriteUuid ?? '<no write uuid>');
 
   return missing;
 }
@@ -187,15 +188,21 @@ function initializeAdapter(
       await adapter.onConnected(ctx);
       bleLog.debug('adapter.onConnected() completed');
     } else {
-      // Legacy unlock command interval
+      // Legacy unlock command interval. Absent unlock fields mean this adapter
+      // has no legacy unlock; do nothing (it is a pure notify-and-parse or a
+      // broadcast adapter). #244: no adapter fakes an empty unlock anymore.
       const writeChar =
         resolveChar(charMap, adapter.charWriteUuid) ??
         (adapter.altCharWriteUuid ? resolveChar(charMap, adapter.altCharWriteUuid) : undefined);
       if (!writeChar) return;
 
-      const commands = adapter.unlockCommands
-        ? adapter.unlockCommands.map((c) => Buffer.from(c))
-        : [Buffer.from(adapter.unlockCommand)];
+      const hasMultiple = adapter.unlockCommands && adapter.unlockCommands.length > 0;
+      const hasSingle = adapter.unlockCommand && adapter.unlockCommand.length > 0;
+      if (!hasMultiple && !hasSingle) return; // no legacy unlock to send
+
+      const commands = hasMultiple
+        ? adapter.unlockCommands!.map((c) => Buffer.from(c))
+        : [Buffer.from(adapter.unlockCommand!)];
       const sendUnlock = async (): Promise<void> => {
         if (isResolved()) return;
         for (const buf of commands) {
@@ -211,7 +218,11 @@ function initializeAdapter(
       };
 
       sendUnlock();
-      unlockInterval = setInterval(() => void sendUnlock(), adapter.unlockIntervalMs);
+      // The `?? 5000` is a defensive default for the impossible-in-practice
+      // case of unlockCommands set without unlockIntervalMs; every real adapter
+      // that keeps Unlockable declares both. 5000 ms mirrors the predominant
+      // existing interval.
+      unlockInterval = setInterval(() => void sendUnlock(), adapter.unlockIntervalMs ?? 5000);
     }
   };
 
@@ -266,9 +277,9 @@ async function subscribeAndInit(
   } else {
     // Legacy mode — single notify + write pair
     bleLog.debug(
-      `Looking for notify=${adapter.charNotifyUuid}` +
+      `Looking for notify=${adapter.charNotifyUuid ?? '<none>'}` +
         (adapter.altCharNotifyUuid ? ` (alt=${adapter.altCharNotifyUuid})` : '') +
-        `, write=${adapter.charWriteUuid}` +
+        `, write=${adapter.charWriteUuid ?? '<none>'}` +
         (adapter.altCharWriteUuid ? ` (alt=${adapter.altCharWriteUuid})` : ''),
     );
 
@@ -282,14 +293,14 @@ async function subscribeAndInit(
     if (!notifyChar || !writeChar) {
       throw new Error(
         `Required characteristics not found. ` +
-          `Notify (${adapter.charNotifyUuid}): ${!!notifyChar}, ` +
-          `Write (${adapter.charWriteUuid}): ${!!writeChar}. ` +
+          `Notify (${adapter.charNotifyUuid ?? '<none>'}): ${!!notifyChar}, ` +
+          `Write (${adapter.charWriteUuid ?? '<none>'}): ${!!writeChar}. ` +
           `Discovered: [${[...charMap.keys()].join(', ')}]`,
       );
     }
 
-    const effectiveNotifyUuid = resolveChar(charMap, adapter.charNotifyUuid)
-      ? adapter.charNotifyUuid
+    const effectiveNotifyUuid: string = resolveChar(charMap, adapter.charNotifyUuid)
+      ? adapter.charNotifyUuid!
       : adapter.altCharNotifyUuid!;
     // Legacy mode — subscribe + first unlock in parallel to prevent
     // the scale from disconnecting before receiving the unlock command

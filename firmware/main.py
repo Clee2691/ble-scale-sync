@@ -52,6 +52,13 @@ _last_beep_time = 0
 # appears in a scan, eliminating the MQTT round-trip latency (#201).
 _auto_connect = True  # opt-out via config topic {"autoConnect": false}
 
+# Lazy host-ordered notify enable (#231): when the host advertises
+# lazy_notify=True on the config topic, BLE notify is enabled only on a per-char
+# subscribe/<uuid> command (after the host has subscribed to notify/<uuid>), so
+# the QN/Renpho ES-CS20M spontaneous 0x12 kickoff frame is never lost. Absent
+# flag (old host) keeps today's eager enable, so there is no regression.
+_lazy_notify = False
+
 
 def topic(suffix):
     return f"{BASE}/{suffix}"
@@ -76,14 +83,15 @@ mqtt_config["queue_len"] = 0  # callback mode
 
 def on_message(topic_bytes, msg, retained):
     """Sync callback — queue the command for async processing."""
-    global _scale_macs, _auto_connect
+    global _scale_macs, _auto_connect, _lazy_notify
     t = topic_bytes.decode() if isinstance(topic_bytes, (bytes, bytearray)) else topic_bytes
     if t == topic("config"):
         try:
             data = json.loads(msg)
             _scale_macs = set(data.get("scales", []))
             _auto_connect = data.get("autoConnect", True)
-            print(f"Config: {len(_scale_macs)} scale MAC(s), autoConnect={_auto_connect}")
+            _lazy_notify = data.get("lazy_notify", False)
+            print(f"Config: {len(_scale_macs)} scale MAC(s), autoConnect={_auto_connect}, lazyNotify={_lazy_notify}")
             if board.HAS_DISPLAY:
                 ui.on_config_update(data.get("users", []))
                 ui.on_scale_macs_update(len(_scale_macs) > 0)

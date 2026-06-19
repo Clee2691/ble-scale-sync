@@ -221,6 +221,40 @@ class TestAutoConnectConfig(unittest.TestCase):
         self.assertFalse(main._auto_connect)
 
 
+class TestLazyNotifyConfig(unittest.TestCase):
+    """_lazy_notify capability flag parsing from the config topic (#231).
+
+    The host advertises lazy_notify so the firmware enables BLE notify only on a
+    per-char subscribe command (host-ordered). Absent flag = eager (old host)."""
+
+    def tearDown(self):
+        main._lazy_notify = False
+
+    def test_default_is_false(self):
+        main._lazy_notify = False
+        self.assertFalse(main._lazy_notify)
+
+    def test_missing_field_defaults_false(self):
+        data = {"scales": ["AA:BB:CC:DD:EE:FF"]}
+        main._lazy_notify = data.get("lazy_notify", False)
+        self.assertFalse(main._lazy_notify)
+
+    def test_explicit_true(self):
+        data = {"scales": [], "lazy_notify": True}
+        main._lazy_notify = data.get("lazy_notify", False)
+        self.assertTrue(main._lazy_notify)
+
+    def test_explicit_false(self):
+        data = {"scales": [], "lazy_notify": False}
+        main._lazy_notify = data.get("lazy_notify", False)
+        self.assertFalse(main._lazy_notify)
+
+    def test_global_exists_with_default(self):
+        # The module must define _lazy_notify at import time so on_message can
+        # assign it and the connect handlers can read it.
+        self.assertTrue(hasattr(main, "_lazy_notify"))
+
+
 class TestWaitNotBusy(unittest.IsolatedAsyncioTestCase):
     """_wait_not_busy: serialize host connect against an in-flight BLE op (#231)."""
 

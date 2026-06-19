@@ -724,7 +724,7 @@ describe('handler-mqtt-proxy', () => {
 
       expect(mockClient.publishAsync).toHaveBeenCalledWith(
         `${PREFIX}/config`,
-        JSON.stringify({ scales: ['ED:67:39:4B:27:FC'] }),
+        JSON.stringify({ scales: ['ED:67:39:4B:27:FC'], lazy_notify: true }),
         { retain: true },
       );
       expect(mockClient.endAsync).toHaveBeenCalled();
@@ -735,7 +735,7 @@ describe('handler-mqtt-proxy', () => {
 
       expect(mockClient.publishAsync).toHaveBeenCalledWith(
         `${PREFIX}/config`,
-        JSON.stringify({ scales: [] }),
+        JSON.stringify({ scales: [], lazy_notify: true }),
         { retain: true },
       );
     });
@@ -745,7 +745,7 @@ describe('handler-mqtt-proxy', () => {
 
       expect(mockClient.publishAsync).toHaveBeenCalledWith(
         `${PREFIX}/config`,
-        JSON.stringify({ scales: ['AA:BB:CC:DD:EE:FF'], autoConnect: false }),
+        JSON.stringify({ scales: ['AA:BB:CC:DD:EE:FF'], autoConnect: false, lazy_notify: true }),
         { retain: true },
       );
     });
@@ -756,6 +756,15 @@ describe('handler-mqtt-proxy', () => {
       const payload = (mockClient.publishAsync as ReturnType<typeof vi.fn>).mock.calls[0][1];
       const parsed = JSON.parse(payload);
       expect(parsed).not.toHaveProperty('autoConnect');
+      expect(parsed.lazy_notify).toBe(true);
+    });
+
+    it('always advertises lazy_notify:true for #231 host-ordered notify', async () => {
+      await publishConfig(MQTT_PROXY_CONFIG, ['AA:BB:CC:DD:EE:FF']);
+      const payload = JSON.parse(
+        (mockClient.publishAsync as ReturnType<typeof vi.fn>).mock.calls[0][1] as string,
+      );
+      expect(payload.lazy_notify).toBe(true);
     });
   });
 
@@ -819,11 +828,13 @@ describe('handler-mqtt-proxy', () => {
       ];
       await publishConfig(MQTT_PROXY_CONFIG, ['AA:BB:CC:DD:EE:FF'], users);
 
-      expect(mockClient.publishAsync).toHaveBeenCalledWith(
-        `${PREFIX}/config`,
-        JSON.stringify({ scales: ['AA:BB:CC:DD:EE:FF'], users }),
-        { retain: true },
-      );
+      const call = (mockClient.publishAsync as ReturnType<typeof vi.fn>).mock.calls[0];
+      expect(call[0]).toBe(`${PREFIX}/config`);
+      expect(call[2]).toEqual({ retain: true });
+      const parsed = JSON.parse(call[1] as string);
+      expect(parsed.scales).toEqual(['AA:BB:CC:DD:EE:FF']);
+      expect(parsed.users).toEqual(users);
+      expect(parsed.lazy_notify).toBe(true);
     });
 
     it('omits users key when users array is empty', async () => {
@@ -831,7 +842,7 @@ describe('handler-mqtt-proxy', () => {
 
       expect(mockClient.publishAsync).toHaveBeenCalledWith(
         `${PREFIX}/config`,
-        JSON.stringify({ scales: ['AA:BB:CC:DD:EE:FF'] }),
+        JSON.stringify({ scales: ['AA:BB:CC:DD:EE:FF'], lazy_notify: true }),
         { retain: true },
       );
     });
@@ -843,6 +854,7 @@ describe('handler-mqtt-proxy', () => {
         (mockClient.publishAsync as ReturnType<typeof vi.fn>).mock.calls[0][1] as string,
       );
       expect(payload).not.toHaveProperty('users');
+      expect(payload.lazy_notify).toBe(true);
     });
   });
 

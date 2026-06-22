@@ -11,6 +11,10 @@ import type { EmbeddedBrokerHandle } from '../ble/embedded-broker.js';
 import type { Exporter } from '../interfaces/exporter.js';
 import type { DisplayNotifier } from '../interfaces/display-notifier.js';
 
+export interface WeighPublisher {
+  publishWeight(weightKg: number): Promise<void>;
+}
+
 export interface AppContext {
   // Hot-swappable on reload
   config: AppConfig;
@@ -18,6 +22,11 @@ export interface AppContext {
   weightUnit: WeightUnit;
   dryRun: boolean;
   mqttProxy: MqttProxyConfig | undefined;
+
+  /** True when the user has enabled Weigh Mode (object weighing, no user profile). */
+  weighMode: boolean;
+  /** Set by WeighModeManager when active; used by processWeighMode to publish raw weight. */
+  weighPublisher?: WeighPublisher;
 
   // Frozen for process lifetime
   readonly configSource: ConfigSource;
@@ -82,6 +91,8 @@ export function createAppContext(init: AppContextInit): AppContext {
     lastExportedWeights: new Map(),
 
     embeddedBroker: null,
+
+    weighMode: false,
 
     abortApp: init.abortApp,
 

@@ -92,7 +92,7 @@ For advanced setups (multi-user, additional exporters like InfluxDB/Webhook/Ntfy
 /share/ble-scale-sync/config.yaml
 ```
 
-See [config.yaml.example](https://github.com/KristianP26/ble-scale-sync/blob/main/config.yaml.example) for the full reference.
+See [config.yaml.example](https://github.com/Clee2691/ble-scale-sync/blob/main/config.yaml.example) for the full reference.
 
 When custom config is enabled, all other options in the Configuration tab are ignored.
 
@@ -137,6 +137,6 @@ The add-on power-cycles the Bluetooth adapter on startup to ensure a clean state
 ## Links
 
 - [Documentation](https://blescalesync.dev)
-- [GitHub](https://github.com/KristianP26/ble-scale-sync)
+- [GitHub](https://github.com/Clee2691/ble-scale-sync)
 - [Supported scales](https://blescalesync.dev/guide/supported-scales)
-- [Issue tracker](https://github.com/KristianP26/ble-scale-sync/issues)
+- [Issue tracker](https://github.com/Clee2691/ble-scale-sync/issues)

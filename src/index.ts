@@ -26,6 +26,9 @@ import {
   getExportersForUser,
   buildAllUniqueExporters,
 } from './runtime/exporters.js';
+import { WeighModeManager } from './runtime/weigh-mode.js';
+import { buildMqttConfigFromEntry } from './exporters/registry.js';
+import type { AppConfig } from './config/schema.js';
 
 // ─── CLI flags ──────────────────────────────────────────────────────────────
 
@@ -135,6 +138,44 @@ if (process.platform !== 'win32') {
   });
 }
 
+// ─── Weigh Mode ─────────────────────────────────────────────────────────────
+
+function findMqttEntry(config: AppConfig) {
+  const all = [
+    ...(config.global_exporters ?? []),
+    ...config.users.flatMap((u) => u.exporters ?? []),
+  ];
+  return all.find((e) => e.type === 'mqtt');
+}
+
+let weighModeManager: WeighModeManager | null = null;
+
+async function startWeighModeManager(): Promise<void> {
+  const entry = findMqttEntry(ctx.config);
+  if (!entry) return;
+  const { type: _, ...cfg } = entry;
+  const mqttConfig = buildMqttConfigFromEntry(cfg as Record<string, unknown>);
+  if (!mqttConfig.haDiscovery && !mqttConfig.brokerUrl) return;
+  try {
+    weighModeManager = new WeighModeManager(mqttConfig, ctx);
+    await weighModeManager.start();
+  } catch (err) {
+    log.warn(`Weigh mode manager failed to start: ${errMsg(err)}`);
+    weighModeManager = null;
+  }
+}
+
+async function stopWeighModeManager(): Promise<void> {
+  if (!weighModeManager) return;
+  try {
+    await weighModeManager.stop();
+  } catch (err) {
+    log.warn(`Weigh mode manager shutdown error: ${errMsg(err)}`);
+  } finally {
+    weighModeManager = null;
+  }
+}
+
 // ─── Heartbeat ──────────────────────────────────────────────────────────────
 
 const HEARTBEAT_PATH = '/tmp/.ble-scale-sync-heartbeat';
@@ -174,6 +215,8 @@ async function main(): Promise<void> {
     // ctx.mqttProxy live so config reloads take effect (#183).
     ctx.display = createMqttProxyDisplayNotifier(() => ctx.mqttProxy);
   }
+  await startWeighModeManager();
+
   if (ctx.scaleMac) {
     log.info(`Scanning for scale ${ctx.scaleMac}...`);
   } else {
@@ -251,6 +294,9 @@ async function main(): Promise<void> {
     if (ctx.config.users.length === 1) {
       singleUserExporters = ctx.dryRun ? undefined : buildSingleUserExporters(ctx);
     }
+    // Restart the weigh mode manager in case the MQTT config changed
+    await stopWeighModeManager();
+    await startWeighModeManager();
   };
 
   const bundle = await buildReadingSource(
@@ -300,6 +346,7 @@ main()
     process.exitCode = 1;
   })
   .finally(async () => {
+    await stopWeighModeManager();
     await shutdownEmbeddedBroker();
     stopHeartbeat();
   });

@@ -47,6 +47,22 @@ function requireField(config: Record<string, unknown>, type: string, key: string
   return String(value);
 }
 
+// --- Config builders ---
+
+export function buildMqttConfigFromEntry(config: Record<string, unknown>): MqttConfig {
+  return {
+    brokerUrl: requireField(config, 'mqtt', 'broker_url'),
+    topic: (config.topic as string) ?? 'scale/body-composition',
+    qos: (config.qos as 0 | 1 | 2) ?? 1,
+    retain: (config.retain as boolean) ?? true,
+    username: config.username as string | undefined,
+    password: config.password as string | undefined,
+    clientId: (config.client_id as string) ?? 'ble-scale-sync',
+    haDiscovery: (config.ha_discovery as boolean) ?? true,
+    haDeviceName: (config.ha_device_name as string) ?? 'BLE Scale',
+  };
+}
+
 // --- Registry ---
 
 export const EXPORTER_REGISTRY: ExporterRegistryEntry[] = [
@@ -61,20 +77,7 @@ export const EXPORTER_REGISTRY: ExporterRegistryEntry[] = [
   },
   {
     schema: mqttSchema,
-    factory: (config) => {
-      const mqttConfig: MqttConfig = {
-        brokerUrl: requireField(config, 'mqtt', 'broker_url'),
-        topic: (config.topic as string) ?? 'scale/body-composition',
-        qos: (config.qos as 0 | 1 | 2) ?? 1,
-        retain: (config.retain as boolean) ?? true,
-        username: config.username as string | undefined,
-        password: config.password as string | undefined,
-        clientId: (config.client_id as string) ?? 'ble-scale-sync',
-        haDiscovery: (config.ha_discovery as boolean) ?? true,
-        haDeviceName: (config.ha_device_name as string) ?? 'BLE Scale',
-      };
-      return new MqttExporter(mqttConfig);
-    },
+    factory: (config) => new MqttExporter(buildMqttConfigFromEntry(config)),
   },
   {
     schema: webhookSchema,

@@ -58,6 +58,17 @@ export interface ProcessReadingOpts {
   getExportersForUser?: (slug: string) => Exporter[];
 }
 
+async function processWeighMode(ctx: AppContext, raw: RawReading): Promise<boolean> {
+  const weight = raw.reading.weight;
+  log.info(`\nWeigh mode: ${fmtWeight(weight, ctx.weightUnit)}`);
+  if (ctx.weighPublisher) {
+    await ctx.weighPublisher.publishWeight(weight);
+  } else {
+    log.info('Weigh mode: no publisher configured (MQTT exporter required).');
+  }
+  return true;
+}
+
 /**
  * Unified reading processor. Single-user mode is the degenerate case of
  * multi-user with `users.length === 1`: skips weight-based matching, drift
@@ -71,6 +82,9 @@ export async function processReading(
   raw: RawReading,
   opts: ProcessReadingOpts = {},
 ): Promise<boolean> {
+  if (ctx.weighMode) {
+    return processWeighMode(ctx, raw);
+  }
   const isMultiUser = ctx.config.users.length > 1;
   if (isMultiUser) {
     return processMultiUser(ctx, raw, opts.getExportersForUser);

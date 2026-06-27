@@ -1,4 +1,4 @@
-import { helperOf, type Adapter } from './dbus.js';
+import { helperOf, type Adapter, type Device } from './dbus.js';
 import { LIVENESS_PROBE_WINDOW_MS, sleep as defaultSleep } from '../types.js';
 
 /**
@@ -17,12 +17,15 @@ export function makeLivenessAdapter(btAdapter: Adapter): LivenessAdapter {
   return {
     listAddresses: () => btAdapter.devices(),
     rssiOf: async (addr) => {
+      let dev: Device | undefined;
       try {
-        const dev = await btAdapter.getDevice(addr);
+        dev = await btAdapter.getDevice(addr);
         const rssi = await helperOf(dev).prop('RSSI');
         return typeof rssi === 'number' ? rssi : undefined;
       } catch {
         return undefined;
+      } finally {
+        if (dev) helperOf(dev).removeListeners();
       }
     },
   };

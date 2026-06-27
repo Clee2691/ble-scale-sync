@@ -1,5 +1,10 @@
-import { describe, it, expect } from 'vitest';
-import { probeLiveness, type LivenessAdapter } from '../../src/ble/handler-node-ble/liveness.js';
+import { describe, it, expect, vi } from 'vitest';
+import {
+  probeLiveness,
+  makeLivenessAdapter,
+  type LivenessAdapter,
+} from '../../src/ble/handler-node-ble/liveness.js';
+import type { Adapter } from '../../src/ble/handler-node-ble/dbus.js';
 
 const noSleep = async () => {};
 
@@ -66,5 +71,33 @@ describe('probeLiveness', () => {
       rssiOf: async () => undefined,
     };
     expect(await probeLiveness(la, { sleep: noSleep })).toBe(false);
+  });
+});
+
+describe('makeLivenessAdapter', () => {
+  it('rssiOf calls removeListeners after reading RSSI', async () => {
+    const removeListeners = vi.fn();
+    const mockDevice = { helper: { prop: vi.fn().mockResolvedValue(-50), removeListeners } };
+    const mockAdapter = { getDevice: vi.fn().mockResolvedValue(mockDevice) } as unknown as Adapter;
+
+    const la = makeLivenessAdapter(mockAdapter);
+    const result = await la.rssiOf('AA:BB:CC:DD:EE:FF');
+
+    expect(result).toBe(-50);
+    expect(removeListeners).toHaveBeenCalledOnce();
+  });
+
+  it('rssiOf calls removeListeners even when prop throws', async () => {
+    const removeListeners = vi.fn();
+    const mockDevice = {
+      helper: { prop: vi.fn().mockRejectedValue(new Error('RSSI unavailable')), removeListeners },
+    };
+    const mockAdapter = { getDevice: vi.fn().mockResolvedValue(mockDevice) } as unknown as Adapter;
+
+    const la = makeLivenessAdapter(mockAdapter);
+    const result = await la.rssiOf('AA:BB:CC:DD:EE:FF');
+
+    expect(result).toBeUndefined();
+    expect(removeListeners).toHaveBeenCalledOnce();
   });
 });

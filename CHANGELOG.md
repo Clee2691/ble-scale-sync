@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.20.1](https://github.com/Clee2691/ble-scale-sync/compare/v1.20.0...v1.20.1) (2026-06-27)
+
+
+### Fixed
+
+* resolve BLE listener leak warnings ([954fd94](https://github.com/Clee2691/ble-scale-sync/commit/954fd947dae461204b18295bb3af2cc9d6d6259c))
+* resolve BLE listener leak warnings ([39a8dc8](https://github.com/Clee2691/ble-scale-sync/commit/39a8dc83324145496a278302251d3c9a572b3c7d))
+
 ## [1.20.0](https://github.com/Clee2691/ble-scale-sync/compare/v1.19.0...v1.20.0) (2026-06-22)
 
 

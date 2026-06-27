@@ -80,7 +80,8 @@ export async function runContinuousLoop(deps: RuntimeLoopDeps): Promise<void> {
           backoffMs = 0;
           log.debug(`${failureLogPrefix}, retrying immediately... (${errMsg(err)})`);
         } else {
-          backoffMs = backoffMs === 0 ? BACKOFF_INITIAL_MS : Math.min(backoffMs * 2, BACKOFF_MAX_MS);
+          backoffMs =
+            backoffMs === 0 ? BACKOFF_INITIAL_MS : Math.min(backoffMs * 2, BACKOFF_MAX_MS);
           log.info(`${failureLogPrefix}, retrying in ${backoffMs / 1000}s... (${errMsg(err)})`);
           await abortableSleep(backoffMs, signal).catch(() => {});
         }

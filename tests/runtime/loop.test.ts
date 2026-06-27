@@ -227,6 +227,35 @@ describe('runContinuousLoop', () => {
     expect(onSuccess).toHaveBeenCalledOnce();
   });
 
+  it('idle errors (bleFailureKind=idle) skip backoff and retry immediately', async () => {
+    const ac = new AbortController();
+    const { source, nextReading } = makeSource();
+
+    const idleErr = Object.assign(new Error('scale not found'), { bleFailureKind: 'idle' });
+    let call = 0;
+    nextReading.mockImplementation(async () => {
+      call += 1;
+      if (call < 4) throw idleErr;
+      ac.abort();
+      return STUB_RAW;
+    });
+
+    const loop = runContinuousLoop({
+      source,
+      processReading: async () => true,
+      signal: ac.signal,
+      touchHeartbeat: () => {},
+      isReloadRequested: () => false,
+      clearReloadRequest: () => {},
+    });
+
+    // No timer advances needed — idle errors should not sleep.
+    await vi.advanceTimersByTimeAsync(0);
+    await loop;
+
+    expect(nextReading).toHaveBeenCalledTimes(4);
+  });
+
   it('does not call onSuccess when abort fires between processReading and onSuccess', async () => {
     const ac = new AbortController();
     const { source } = makeSource();

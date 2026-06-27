@@ -16,6 +16,7 @@ export type PropsChangedHandler = (props: Record<string, unknown>) => void;
 export interface BluezHelper {
   on(event: 'PropertiesChanged', handler: PropsChangedHandler): void;
   removeListener(event: 'PropertiesChanged', handler: PropsChangedHandler): void;
+  removeListeners(): void;
   prop(name: string): Promise<unknown>;
   set(name: string, value: Variant): Promise<void>;
   callMethod(method: string, ...args: unknown[]): Promise<unknown>;

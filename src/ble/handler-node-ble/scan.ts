@@ -399,7 +399,9 @@ export async function scanAndReadRaw(opts: ScanOptions): Promise<RawReading> {
       try {
         await device.disconnect();
       } catch {
-        /* already disconnected or never connected */
+        // Device was never connected (passive scan) or already disconnected;
+        // disconnect() skips removeListeners() on throw, so call it explicitly.
+        helperOf(device).removeListeners();
       }
     }
 
